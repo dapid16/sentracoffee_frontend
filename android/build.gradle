@@ -1,0 +1,30 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+buildscript {
+    ext.kotlin_version = '1.9.0' // <-- Pastikan ini versi Kotlin yang kompatibel atau lebih tinggi
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // INI ADALAH VERSI ANDROID GRADLE PLUGIN (AGP) YANG HARUS 8.3.0
+        classpath 'com.android.tools.build:gradle:8.3.0' // <-- PASTIKAN INI 8.3.0
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        // NO DOKUMEN: classpath 'com.google.gms:google-services:4.4.2' // Contoh jika menggunakan Firebase
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// Bagian ini biasanya ada di settings.gradle untuk proyek baru, tapi kita tambahkan di sini untuk kompatibilitas
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
