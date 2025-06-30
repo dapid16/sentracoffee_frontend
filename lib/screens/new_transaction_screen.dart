@@ -1,18 +1,23 @@
-// lib/screens/admin/new_transaction_screen.dart (VERSI UPGRADE DENGAN EDIT)
+// lib/screens/admin/new_transaction_screen.dart (FINAL DENGAN NAVIGASI CHECKOUT)
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sentra_coffee_frontend/models/menu.dart';
 import 'package:sentra_coffee_frontend/services/api_service.dart';
 import 'package:sentra_coffee_frontend/screens/product_options_screen.dart';
-import 'package:sentra_coffee_frontend/screens/checkout_screen.dart';
+import 'package:sentra_coffee_frontend/screens/checkout_screen.dart'; // <<< IMPORT HALAMAN TUJUAN
 
-// Model ini tetap sama
+// Model untuk item di keranjang transaksi saat ini
 class TransactionCartItem {
   final Menu menu;
   int quantity;
-  String size;
-  TransactionCartItem({required this.menu, required this.quantity, required this.size});
+  final String size;
+
+  TransactionCartItem({
+    required this.menu,
+    required this.quantity,
+    required this.size,
+  });
 }
 
 class NewTransactionScreen extends StatefulWidget {
@@ -35,27 +40,20 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     _menuFuture = _apiService.fetchAllMenu();
   }
 
-  // --- FUNGSI INI KITA UPGRADE UNTUK HANDLE EDIT ---
-  void _updateCart(CustomizedOrderItem newItem, {int? editIndex}) {
+  void _addItemToOrder(CustomizedOrderItem customizedItem) {
     setState(() {
-      if (editIndex != null) {
-        // Mode EDIT: Ganti item di index yang spesifik
-        _currentOrder[editIndex].quantity = newItem.quantity;
-        _currentOrder[editIndex].size = newItem.size;
-      } else {
-        // Mode ADD: Cek apakah item yang sama sudah ada
-        var existingItemIndex = _currentOrder.indexWhere((item) =>
-            item.menu.idMenu == newItem.menu.idMenu && item.size == newItem.size);
+      var existingItemIndex = _currentOrder.indexWhere((item) =>
+          item.menu.idMenu == customizedItem.menu.idMenu &&
+          item.size == customizedItem.size);
 
-        if (existingItemIndex != -1) {
-          _currentOrder[existingItemIndex].quantity += newItem.quantity;
-        } else {
-          _currentOrder.add(TransactionCartItem(
-            menu: newItem.menu,
-            quantity: newItem.quantity,
-            size: newItem.size,
-          ));
-        }
+      if (existingItemIndex != -1) {
+        _currentOrder[existingItemIndex].quantity += customizedItem.quantity;
+      } else {
+        _currentOrder.add(TransactionCartItem(
+          menu: customizedItem.menu,
+          quantity: customizedItem.quantity,
+          size: customizedItem.size,
+        ));
       }
       _calculateTotal();
     });
@@ -65,55 +63,83 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     double total = 0;
     for (var item in _currentOrder) {
       double basePrice = item.menu.harga;
-      if (item.size == 'small') basePrice *= 0.8;
-      if (item.size == 'large') basePrice *= 1.2;
+      if (item.size == 'small') {
+        basePrice *= 0.8;
+      } else if (item.size == 'large') {
+        basePrice *= 1.2;
+      }
       total += basePrice * item.quantity;
     }
-    setState(() { _totalPrice = total; });
+    setState(() {
+      _totalPrice = total;
+    });
   }
 
   String _formatRupiah(double amount) {
-    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(amount);
-  }
-
-  // --- Fungsi baru untuk membuka halaman opsi dalam mode EDIT ---
-  void _editItemInOrder(int index) async {
-    final result = await Navigator.push<CustomizedOrderItem>(
-      context,
-      MaterialPageRoute(builder: (context) => ProductOptionsScreen(
-        menu: _currentOrder[index].menu,
-        initialItem: _currentOrder[index], // Kirim data item yang ada
-      )),
-    );
-    if (result != null) {
-      _updateCart(result, editIndex: index); // Panggil _updateCart dengan editIndex
-    }
+    return NumberFormat.currency(
+            locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+        .format(amount);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Create New Transaction'),
-        backgroundColor: Colors.blueGrey[900],
+        iconTheme: const IconThemeData(color: Colors.black),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Transaction',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        centerTitle: true,
       ),
-      body: Row(
+      body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Find Product',
+                prefixIcon: const Icon(Icons.menu, color: Colors.grey),
+                suffixIcon: const Icon(Icons.search, color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+              ),
+            ),
+          ),
           Expanded(
-            flex: 2,
             child: FutureBuilder<List<Menu>>(
               future: _menuFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
+                }
+                if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Center(child: Text('Menu tidak ditemukan.'));
                 }
+
                 final menus = snapshot.data!;
                 return GridView.builder(
-                  // ... (GridView tidak berubah) ...
+                  padding: const EdgeInsets.all(16.0),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.8,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: menus.length,
                   itemBuilder: (context, index) {
                     final menu = menus[index];
                     return _buildMenuCard(menu);
@@ -122,48 +148,28 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
               },
             ),
           ),
-          Expanded(
-            flex: 1,
-            child: Container(
-              color: Colors.grey[100],
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('Current Order', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const Divider(height: 24),
-                  Expanded(
-                    child: _currentOrder.isEmpty
-                        ? const Center(child: Text('Keranjang masih kosong.'))
-                        // --- LIST KERANJANG SEKARANG BISA DI-KLIK UNTUK EDIT ---
-                        : ListView.builder(
-                            itemCount: _currentOrder.length,
-                            itemBuilder: (context, index) {
-                              final item = _currentOrder[index];
-                              return ListTile(
-                                title: Text('${item.quantity}x ${item.menu.namaMenu}'),
-                                subtitle: Text(item.size),
-                                onTap: () => _editItemInOrder(index), // Panggil fungsi edit
-                              );
-                            },
-                          ),
-                  ),
-                  const Divider(height: 24),
-                  ElevatedButton(
-                    onPressed: _currentOrder.isNotEmpty ? () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => CheckoutScreen(
-                        orderItems: _currentOrder,
-                        totalPrice: _totalPrice,
-                      )));
-                    } : null, // Disable tombol jika keranjang kosong
-                    child: const Text('Proses Pembayaran'),
-                  )
-                ],
-              ),
-            ),
-          ),
         ],
       ),
+      floatingActionButton: _currentOrder.isNotEmpty
+          ? FloatingActionButton.extended(
+              // --- INI BAGIAN YANG DI-UPGRADE ---
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CheckoutScreen(
+                      orderItems: _currentOrder,
+                      totalPrice: _totalPrice,
+                    ),
+                  ),
+                );
+              },
+              label: Text('${_currentOrder.length} Items | ${_formatRupiah(_totalPrice)}'),
+              icon: const Icon(Icons.shopping_cart_checkout),
+              backgroundColor: Colors.black,
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -209,4 +215,3 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     );
   }
 }
-
