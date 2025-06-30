@@ -1,13 +1,11 @@
-// lib/screens/order_history_screen.dart
+// lib/screens/order_history_screen.dart (VERSI FINAL DENGAN PERBAIKAN)
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Import provider
-import 'package:sentra_coffee_frontend/services/order_service.dart'; // Import OrderService
-import 'package:sentra_coffee_frontend/models/order.dart'; // Import Order Model
-import 'package:sentra_coffee_frontend/screens/home_screen.dart'; // Untuk navigasi BottomNav
-// Import CartScreen jika ingin navigasi ke CartScreen dari BottomNav
-// import 'package:sentra_coffee_frontend/screens/cart_screen.dart';
-
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:sentra_coffee_frontend/services/auth_service.dart';
+import 'package:sentra_coffee_frontend/services/order_service.dart';
+import 'package:sentra_coffee_frontend/models/order.dart';
 
 class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({Key? key}) : super(key: key);
@@ -16,7 +14,8 @@ class OrderHistoryScreen extends StatefulWidget {
   State<OrderHistoryScreen> createState() => _OrderHistoryScreenState();
 }
 
-class _OrderHistoryScreenState extends State<OrderHistoryScreen> with SingleTickerProviderStateMixin {
+class _OrderHistoryScreenState extends State<OrderHistoryScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -24,8 +23,21 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> with SingleTick
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
 
-    // PENTING: Minta OrderService untuk fetch data saat screen pertama kali dibuka
-    Provider.of<OrderService>(context, listen: false).fetchOrders(userName: widget.userName);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final authService = Provider.of<AuthService>(context, listen: false);
+        
+        // --- PERBAIKAN #1: Panggil .idCustomer, bukan .id atau .nama ---
+        // Asumsi model Customer lo punya properti `idCustomer`
+        final customerId = authService.loggedInCustomer?.idCustomer; 
+        
+        if (customerId != null) {
+          // --- PERBAIKAN #2: Kirim idCustomer, bukan userName ---
+          Provider.of<OrderService>(context, listen: false)
+              .fetchOrders(idCustomer: customerId.toString()); // Kirim sebagai String
+        }
+      }
+    });
   }
 
   @override
@@ -34,131 +46,79 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> with SingleTick
     super.dispose();
   }
 
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      return DateFormat('d MMM y, HH:mm').format(date);
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  String _formatRupiah(String amount) {
+    final number = double.tryParse(amount) ?? 0;
+    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(number);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final orderService = Provider.of<OrderService>(context);
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-        title: const Text(
-          'My order',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        centerTitle: true,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'On going'),
-            Tab(text: 'History'),
-          ],
-          labelColor: Colors.black,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.brown,
-          indicatorSize: TabBarIndicatorSize.tab,
-          indicatorWeight: 3,
-        ),
-      ),
-
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          if (orderService.isLoading)
-            const Center(child: CircularProgressIndicator())
-          else if (orderService.errorMessage != null)
-            Center(child: Text('Error: ${orderService.errorMessage}'))
-          else
-            _buildOrderList(orderService.onGoingOrders),
-
-          if (orderService.isLoading)
-            const Center(child: CircularProgressIndicator())
-          else if (orderService.errorMessage != null)
-            Center(child: Text('Error: ${orderService.errorMessage}'))
-          else
-            _buildOrderList(orderService.historyOrders),
-        ],
-      ),
-
-      // ==============================================================
-      // PERBAIKAN DI SINI: Bottom Navigation Bar
-      // ==============================================================
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              spreadRadius: 2,
-              offset: const Offset(0, -2),
+    return Consumer<OrderService>(
+      builder: (context, orderService, child) {
+        return Scaffold(
+          backgroundColor: Colors.grey[100],
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            backgroundColor: Colors.white,
+            elevation: 1,
+            title: const Text(
+              'My Orders',
+              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          child: BottomNavigationBar(
-            currentIndex: _tabController.index,
-            onTap: (index) {
-              setState(() {
-                _tabController.index = index;
-              });
-              // Logika navigasi ke screen lain
-              if (index == 0) { // Home tab
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
-              } else if (index == 1) { // Promo / Gift tab
-                // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PromoScreen()));
-              } else if (index == 2) { // Orders tab (sudah di OrderHistoryScreen)
-                // Tidak perlu navigasi karena sudah di halaman ini
-              }
-            },
-            selectedItemColor: Colors.brown,
-            unselectedItemColor: Colors.grey,
-            showSelectedLabels: false, // <<< PERBAIKAN DI SINI! Hapus 'child:'
-            showUnselectedLabels: false,
-            type: BottomNavigationBarType.fixed,
-            items: const <BottomNavigationBarItem>[
-              BottomNavigationBarItem(
-                icon: Icon(Icons.storefront_outlined, size: 28),
-                label: 'Home',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.card_giftcard_outlined, size: 28),
-                label: 'Promo',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.receipt_long_outlined, size: 28),
-                label: 'Orders',
-              ),
+            centerTitle: true,
+            bottom: TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(text: 'On going'),
+                Tab(text: 'History'),
+              ],
+              labelColor: Colors.brown,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: Colors.brown,
+            ),
+          ),
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              if (orderService.isLoading)
+                const Center(child: CircularProgressIndicator(color: Colors.brown))
+              else if (orderService.errorMessage != null)
+                Center(child: Text('Error: ${orderService.errorMessage}'))
+              else
+                _buildOrderList(orderService.onGoingOrders),
+              if (orderService.isLoading)
+                const Center(child: CircularProgressIndicator(color: Colors.brown))
+              else if (orderService.errorMessage != null)
+                Center(child: Text('Error: ${orderService.errorMessage}'))
+              else
+                _buildOrderList(orderService.historyOrders),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  // ==============================================================
-  // Helper Widget untuk Daftar Pesanan (On going / History)
-  // ==============================================================
   Widget _buildOrderList(List<Order> orders) {
     if (orders.isEmpty) {
-      return const Center(child: Text('No orders yet!'));
+      return const Center(
+        child: Text(
+          'No orders yet!',
+          style: TextStyle(color: Colors.grey, fontSize: 16),
+        ),
+      );
     }
     return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(12.0),
       itemCount: orders.length,
       itemBuilder: (context, index) {
         final order = orders[index];
@@ -167,62 +127,64 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> with SingleTick
           elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey[300]!, width: 1.0),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tanggal & Waktu
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      order.dateTime,
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                      'Order #${order.idTransaction}',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                     Text(
-                      'Rp${order.totalPrice.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
+                      _formatDate(order.transactionDate),
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-
-                // Daftar Item dalam Pesanan ini
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: (order.items).map((item) { // Pastikan order.items adalah List
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: Row(
-                        children: [
-                          Icon(item.icon, size: 18, color: Colors.black),
-                          const SizedBox(width: 8),
-                          Text(
-                            item.itemName,
-                            style: const TextStyle(fontSize: 16, color: Colors.black),
+                const Divider(height: 20),
+                ...order.details.map((detail) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '${detail.quantity}x ${detail.namaMenu}',
+                            style: const TextStyle(
+                                fontSize: 16, color: Colors.black),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 8),
-
-                // Lokasi
+                        ),
+                        Text(
+                          _formatRupiah(detail.subtotal),
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                const Divider(height: 20),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(Icons.location_on_outlined, size: 18, color: Colors.black),
-                    const SizedBox(width: 8),
+                    const Text(
+                      'Total',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
                     Text(
-                      order.location,
-                      style: const TextStyle(fontSize: 14, color: Colors.black),
+                      _formatRupiah(order.totalAmount),
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.brown),
                     ),
                   ],
                 ),

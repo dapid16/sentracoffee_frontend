@@ -1,13 +1,13 @@
-// lib/services/order_service.dart
+// lib/services/order_service.dart (VERSI FINAL DENGAN PERBAIKAN FILTER)
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart'; // Untuk debugPrint
-import 'package:sentra_coffee_frontend/models/order.dart'; // Import model Order
+import 'package:flutter/foundation.dart';
+import 'package:sentra_coffee_frontend/models/order.dart';
 
 class OrderService with ChangeNotifier {
-  // Ganti dengan URL API backend lo yang sebenarnya!
-  final String _baseUrl = 'http://192.168.1.100/api/orders.php'; // <<< GANTI DENGAN IP KOMPUTER LO ATAU DOMAIN SERVER LO
+  final String _baseUrl =
+      'http://localhost/SentraCoffee/api/transaction/read.php'; // Pakai localhost untuk Chrome
 
   List<Order> _allOrders = [];
   bool _isLoading = false;
@@ -18,67 +18,55 @@ class OrderService with ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   // Filter order berdasarkan status
-  List<Order> get onGoingOrders =>
-      _allOrders.where((order) => order.status == 'On going').toList();
-  List<Order> get historyOrders =>
-      _allOrders.where((order) => order.status == 'History').toList();
+  List<Order> get onGoingOrders => _allOrders
+      .where((order) => order.status.toLowerCase() == 'on going')
+      .toList();
 
-  Future<void> fetchOrders() async {
+  // --- PERBAIKAN DI SINI ---
+  List<Order> get historyOrders => _allOrders
+      .where((order) => order.status.toLowerCase() == 'completed')
+      .toList();
+
+  Future<void> fetchOrders({required String idCustomer}) async {
     _isLoading = true;
     _errorMessage = null;
-    notifyListeners(); // Beritahu UI kalau loading dimulai
+    notifyListeners();
 
     try {
-      final response = await http.get(Uri.parse(_baseUrl));
+      final url = Uri.parse('$_baseUrl?id_customer=$idCustomer');
+
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        // Asumsi backend mengembalikan array JSON
-        List<dynamic> data = json.decode(response.body);
-        _allOrders = data.map((json) => Order.fromJson(json)).toList();
-        debugPrint('Orders fetched successfully: ${_allOrders.length} orders');
+        final responseData = json.decode(response.body);
+
+        if (responseData is Map && responseData.containsKey('records')) {
+          List<dynamic> data = responseData['records'];
+          _allOrders = data.map((json) => Order.fromJson(json)).toList();
+          debugPrint(
+              'Orders fetched successfully: ${_allOrders.length} orders for customer #$idCustomer');
+        } else {
+          _allOrders = [];
+          debugPrint(
+              'No order records found for customer #$idCustomer or invalid format.');
+        }
       } else {
         _errorMessage = 'Failed to load orders: ${response.statusCode}';
-        debugPrint('Failed to load orders: ${response.statusCode}, Body: ${response.body}');
+        debugPrint(
+            'Failed to load orders: ${response.statusCode}, Body: ${response.body}');
       }
     } catch (e) {
       _errorMessage = 'Error fetching orders: $e';
       debugPrint('Error fetching orders: $e');
     } finally {
       _isLoading = false;
-      notifyListeners(); // Beritahu UI kalau loading selesai
+      notifyListeners();
     }
   }
 
-  // Tambahkan juga method untuk Add Order jika nanti diperlukan
+  // Fungsi addOrder kita biarkan dulu
   Future<bool> addOrder(Map<String, dynamic> orderData) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      final response = await http.post(
-        Uri.parse(_baseUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(orderData),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // Setelah sukses, mungkin perlu refresh daftar order
-        await fetchOrders(); // Ambil ulang semua order
-        debugPrint('Order added successfully');
-        return true;
-      } else {
-        _errorMessage = 'Failed to add order: ${response.statusCode} - ${response.body}';
-        debugPrint('Failed to add order: ${response.statusCode} - ${response.body}');
-        return false;
-      }
-    } catch (e) {
-      _errorMessage = 'Error adding order: $e';
-      debugPrint('Error adding order: $e');
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    // ...
+    return false;
   }
 }

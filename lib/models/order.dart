@@ -1,74 +1,66 @@
-// lib/models/order.dart
+// lib/models/order.dart (VERSI FINAL v2 - PARSING LEBIH PINTAR)
 
-import 'package:flutter/material.dart'; // Untuk IconData
+import 'dart:convert';
 
-class OrderItem {
-  final String itemName;
-  final IconData icon; // IconData langsung dari Flutter Icons
+List<Order> orderFromJson(String str) =>
+    List<Order>.from(json.decode(str)["records"].map((x) => Order.fromJson(x)));
 
-  OrderItem({required this.itemName, required this.icon});
+class TransactionDetail {
+  final String namaMenu;
+  final int quantity;
+  final String subtotal;
 
-  factory OrderItem.fromJson(Map<String, dynamic> json) {
-    // Mapping string icon_code dari backend ke IconData Flutter
-    IconData mappedIcon;
-    switch (json['icon_code']) {
-      case 'coffee_outlined':
-        mappedIcon = Icons.coffee_outlined;
-        break;
-      case 'local_cafe_outlined':
-        mappedIcon = Icons.local_cafe_outlined;
-        break;
-      case 'bakery_dining_outlined':
-        mappedIcon = Icons.bakery_dining_outlined;
-        break;
-      case 'storefront_outlined':
-        mappedIcon = Icons.storefront_outlined;
-        break;
-      case 'takeout_dining_outlined':
-        mappedIcon = Icons.takeout_dining_outlined;
-        break;
-      case 'emoji_food_beverage_outlined':
-        mappedIcon = Icons.emoji_food_beverage_outlined;
-        break;
-      default:
-        mappedIcon = Icons.question_mark_outlined; // Fallback icon
-    }
-    return OrderItem(
-      itemName: json['item_name'],
-      icon: mappedIcon,
+  TransactionDetail({
+    required this.namaMenu,
+    required this.quantity,
+    required this.subtotal,
+  });
+
+  factory TransactionDetail.fromJson(Map<String, dynamic> json) {
+    return TransactionDetail(
+      namaMenu: json["nama_menu"],
+      // --- DIBUAT LEBIH AMAN ---
+      // Ubah dulu ke String, baru di-parse ke int, untuk menghindari error jika datanya String atau int
+      quantity: int.parse(json["quantity"].toString()),
+      subtotal: json["subtotal"],
     );
   }
 }
 
 class Order {
-  final String id;
-  final String dateTime;
-  final String status; // Misalnya "On going" atau "History"
-  final List<OrderItem> items;
-  final String location;
-  final double totalPrice;
+  final String idTransaction;
+  final String transactionDate;
+  final String paymentMethod;
+  final String totalAmount;
+  final String pointsEarned;
+  final String status;
+  final List<TransactionDetail> details;
 
   Order({
-    required this.id,
-    required this.dateTime,
+    required this.idTransaction,
+    required this.transactionDate,
+    required this.paymentMethod,
+    required this.totalAmount,
+    required this.pointsEarned,
     required this.status,
-    required this.items,
-    required this.location,
-    required this.totalPrice,
+    required this.details,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
-    // Parsing daftar item
-    var itemsList = json['items'] as List;
-    List<OrderItem> parsedItems = itemsList.map((i) => OrderItem.fromJson(i)).toList();
+    var detailsList = json['details'] as List;
+    List<TransactionDetail> parsedDetails =
+        detailsList.map((i) => TransactionDetail.fromJson(i)).toList();
 
     return Order(
-      id: json['id'],
-      dateTime: json['date_time'],
-      status: json['status'],
-      items: parsedItems,
-      location: json['location'],
-      totalPrice: json['total_price'].toDouble(), // Pastikan double
+      // --- DIBUAT LEBIH AMAN DENGAN .toString() ---
+      // Apapun tipe datanya dari backend (int atau String), akan diubah jadi String di Dart.
+      idTransaction: json["id_transaction"].toString(),
+      transactionDate: json["transaction_date"].toString(),
+      paymentMethod: json["payment_method"].toString(),
+      totalAmount: json["total_amount"].toString(),
+      pointsEarned: json["points_earned"].toString(),
+      status: json["status"].toString(),
+      details: parsedDetails,
     );
   }
 }

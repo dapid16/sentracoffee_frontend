@@ -4,8 +4,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:sentra_coffee_frontend/models/menu.dart';
 import 'package:sentra_coffee_frontend/models/customer.dart';
-import 'package:sentra_coffee_frontend/models/cart.dart'; 
-
+import 'package:sentra_coffee_frontend/models/cart.dart';
+import 'dart:typed_data';
+import 'package:sentra_coffee_frontend/models/staff.dart';
 
 class ApiService {
   // Pastikan ini adalah alamat yang benar untuk lingkungan lo
@@ -60,32 +61,29 @@ class ApiService {
     }
   }
 
-  // --- Endpoint untuk Login Customer ---
-  Future<Map<String, dynamic>> loginUser(String email, String password) async {
-    // URL ini sudah tanpa .php, jadi biarkan saja
-    final response = await http.post(
-      Uri.parse(
-          '${_baseUrl}customer/login'), // Endpoint login (tanpa .php karena router)
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'email': email,
-        'password': password,
-      }),
-    );
+  // Tambahkan fungsi ini di dalam class ApiService
+// Hapus atau beri komentar pada fungsi loginUser() dan loginOwner() yang lama
 
-    final responseData = json.decode(response.body);
-    if (response.statusCode == 200) {
-      return {
-        'success': true,
-        'message': responseData['message'],
-        'customer': Customer.fromJson(responseData),
-        'nama': responseData['nama'],
-      };
-    } else {
+  Future<Map<String, dynamic>> unifiedLogin(
+      String email, String password) async {
+    final url = Uri.parse(
+        'http://localhost/SentraCoffee/api/auth/login.php'); // URL endpoint baru kita
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'password': password,
+        }),
+      );
+      return json.decode(response.body);
+    } catch (e) {
+      // Jika ada error koneksi, kembalikan response error custom
       return {
         'success': false,
-        'message':
-            responseData['message'] ?? 'Login gagal. Cek email dan password.'
+        'message': 'Gagal terhubung ke server: $e',
       };
     }
   }
@@ -106,7 +104,8 @@ class ApiService {
       return {
         'id_menu': item.idMenu, // Asumsi CartItem punya idMenu
         'quantity': item.quantity,
-        'subtotal': item.pricePerItem * item.quantity, // Hitung subtotal per item
+        'subtotal':
+            item.pricePerItem * item.quantity, // Hitung subtotal per item
       };
     }).toList();
 
@@ -125,10 +124,127 @@ class ApiService {
     );
 
     final responseData = json.decode(response.body);
-    if (response.statusCode == 201) { // HTTP 201 Created untuk sukses
-      return {'success': true, 'message': responseData['message'], 'id_transaction': responseData['id_transaction']};
+    if (response.statusCode == 201) {
+      // HTTP 201 Created untuk sukses
+      return {
+        'success': true,
+        'message': responseData['message'],
+        'id_transaction': responseData['id_transaction']
+      };
     } else {
-      return {'success': false, 'message': responseData['message'] ?? 'Gagal membuat pesanan.'};
+      return {
+        'success': false,
+        'message': responseData['message'] ?? 'Gagal membuat pesanan.'
+      };
     }
   }
+
+  Future<bool> createMenu(Menu menuData) async {
+    final url = Uri.parse('http://localhost/SentraCoffee/api/menu/create.php');
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(
+            menuData.toJson()), // Kita pakai method toJson dari model Menu
+      );
+
+      if (response.statusCode == 201) {
+        // 201 artinya 'Created'
+        print('Menu created successfully: ${response.body}');
+        return true;
+      } else {
+        print(
+            'Failed to create menu. Status: ${response.statusCode}, Body: ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('Error creating menu: $e');
+      return false;
+    }
+  }
+
+// Tambahkan fungsi ini di dalam class ApiService
+
+// Fungsi untuk upload gambar dan mendapatkan nama filenya
+  Future<String?> uploadImage(Uint8List imageBytes, String filename) async {
+    var uri =
+        Uri.parse('http://localhost/SentraCoffee/api/menu/upload_image.php');
+    var request = http.MultipartRequest('POST', uri);
+
+    // Buat file multipart dari data bytes
+    var multipartFile = http.MultipartFile.fromBytes(
+      'image', // 'image' harus sama dengan key di `$_FILES['image']` pada PHP
+      imageBytes,
+      filename: filename,
+    );
+
+    request.files.add(multipartFile);
+
+    try {
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        var responseData = json.decode(response.body);
+        if (responseData['success'] == true) {
+          return responseData[
+              'filename']; // Kembalikan nama file baru dari server
+        }
+      }
+      return null;
+    } catch (e) {
+      print("Image upload error: $e");
+      return null;
+    }
+  }
+
+  Future<List<Staff>> fetchAllStaff() async {
+  final url = Uri.parse('http://localhost/SentraCoffee/api/staff/read.php');
+  try {
+    final response = await http.get(url);
+    if (response.statusCode == 200) {
+      // Gunakan helper staffFromJson yang sudah kita buat di model
+      return staffFromJson(response.body);
+    } else {
+      throw Exception('Gagal memuat daftar staff');
+    }
+  } catch (e) {
+    throw Exception('Error fetching staff: $e');
+  }
+}
+
+// Tambahkan di dalam class ApiService
+Future<bool> createStaff({
+  required String namaStaff,
+  required String email,
+  required String password,
+  required String role,
+  String? noHp,
+  required int idOwner,
+}) async {
+  final url = Uri.parse('http://localhost/SentraCoffee/api/staff/create.php');
+  try {
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'nama_staff': namaStaff,
+        'email': email,
+        'password': password,
+        'role': role,
+        'no_hp': noHp,
+        'id_owner': idOwner,
+      }),
+    );
+    if (response.statusCode == 201) {
+      return true;
+    }
+    return false;
+  } catch (e) {
+    print('Error creating staff: $e');
+    return false;
+  }
+}
 }

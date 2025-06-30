@@ -1,10 +1,10 @@
-// lib/models/customer.dart
+// lib/models/customer.dart (VERSI FINAL DENGAN PERBAIKAN)
 
 class Customer {
   final int idCustomer;
   final String nama;
   final String email;
-  final String? noHp; // Bisa null karena opsional di backend
+  final String? noHp;
 
   Customer({
     required this.idCustomer,
@@ -13,20 +13,21 @@ class Customer {
     this.noHp,
   });
 
-  // Factory constructor untuk membuat objek Customer dari JSON respons backend
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
-      idCustomer: json['customer_id'] as int, // Sesuaikan dengan key 'customer_id' dari respons login.php
+      // --- PERBAIKAN #1: Samakan dengan kunci JSON dari backend ---
+      idCustomer: json['id_customer'] as int,
+      
       nama: json['nama'] as String,
       email: json['email'] as String,
-      noHp: json['no_hp'] != null ? json['no_hp'] as String : null,
+      noHp: json['no_hp'] as String?, // Casting aman ke String?
     );
   }
 
-  // Method untuk mengonversi objek Customer ke Map (jika perlu disimpan di Shared Preferences)
   Map<String, dynamic> toJson() {
     return {
-      'customer_id': idCustomer,
+      // --- PERBAIKAN #2: Samakan juga di sini untuk konsistensi ---
+      'id_customer': idCustomer,
       'nama': nama,
       'email': email,
       'no_hp': noHp,

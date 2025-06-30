@@ -1,11 +1,15 @@
-// lib/screens/login_screen.dart
+// lib/screens/login_screen.dart (VERSI FINAL DENGAN NAVIGASI ANTI-GAGAL)
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sentra_coffee_frontend/models/customer.dart';
+import 'package:sentra_coffee_frontend/models/owner.dart';
+import 'package:sentra_coffee_frontend/services/api_service.dart';
 import 'package:sentra_coffee_frontend/services/auth_service.dart';
+import 'package:sentra_coffee_frontend/services/admin_auth_service.dart';
+import 'package:sentra_coffee_frontend/main.dart'; // <<< IMPORT main.dart untuk akses AuthWrapper
 import 'package:sentra_coffee_frontend/utils/constants.dart';
 import 'package:sentra_coffee_frontend/utils/text_styles.dart';
-import 'package:sentra_coffee_frontend/screens/home_screen.dart';
 import 'package:sentra_coffee_frontend/screens/register_screen.dart';
 import 'package:sentra_coffee_frontend/widgets/circular_icon_button.dart';
 
@@ -31,49 +35,51 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+  Future<void> _doUnifiedLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
 
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final bool success = await authService.login(
-        _emailController.text,
-        _passwordController.text,
+    final apiService = ApiService();
+    final response = await apiService.unifiedLogin(
+      _emailController.text,
+      _passwordController.text,
+    );
+
+    if (!mounted) return;
+
+    if (response['success'] == true) {
+      final role = response['role'];
+      final data = response['data'];
+
+      if (role == 'admin') {
+        Provider.of<AdminAuthService>(context, listen: false)
+            .loginWithOwnerData(Owner.fromJson(data));
+      } else if (role == 'customer') {
+        Provider.of<AuthService>(context, listen: false)
+            .loginWithCustomerData(Customer.fromJson(data));
+      }
+
+      // --- PERINTAH NAVIGASI BARU YANG LEBIH KUAT ---
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const AuthWrapper()),
+        (Route<dynamic> route) => false,
       );
 
-      setState(() {
-        _isLoading = false;
-      });
-
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login berhasil! Selamat datang, ${authService.loggedInCustomer?.nama ?? ''}!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Ambil nama user dari AuthService dan kirim ke HomeScreen
-        final String userName = authService.loggedInCustomer?.nama ?? 'Guest';
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => HomeScreen(userName: userName)), // <-- UBAH DI SINI
-          (Route<dynamic> route) => false,
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login gagal. Cek email dan password Anda.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    } else {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response['message'] ?? 'Login gagal.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // KODE UI TIDAK ADA YANG BERUBAH
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       appBar: AppBar(
@@ -106,10 +112,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 10),
                 Text(
                   'Welcome to Sentra Coffee App',
-                  style: AppTextStyles.bodyText1.copyWith(color: AppColors.greyText),
+                  style:
+                      AppTextStyles.bodyText1.copyWith(color: AppColors.greyText),
                 ),
                 const SizedBox(height: 50),
-
                 _buildTextField(
                   controller: _emailController,
                   labelText: 'Email address',
@@ -126,7 +132,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
                 const SizedBox(height: 20),
-
                 _buildTextField(
                   controller: _passwordController,
                   labelText: 'Password',
@@ -156,30 +161,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: TextButton(
                     onPressed: () {
                       print('Forgot Password tapped!');
-                      // TODO: Navigasi ke halaman Forgot Password
                     },
                     child: Text(
                       'Forgot Password?',
-                      style: AppTextStyles.bodyText2.copyWith(color: AppColors.greyText),
+                      style: AppTextStyles.bodyText2
+                          .copyWith(color: AppColors.greyText),
                     ),
                   ),
                 ),
                 const SizedBox(height: 50),
-
                 Align(
                   alignment: Alignment.centerRight,
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: AppColors.primaryColor)
+                      ? const CircularProgressIndicator(
+                          color: AppColors.primaryColor)
                       : CircularIconButton(
                           backgroundColor: AppColors.darkGrey,
-                          onPressed: _login,
+                          onPressed: _doUnifiedLogin,
                           icon: Icons.arrow_forward,
                           size: 60,
                           iconColor: Colors.white,
                         ),
                 ),
                 const SizedBox(height: 60),
-
                 Align(
                   alignment: Alignment.center,
                   child: Row(
@@ -187,15 +191,22 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       Text(
                         'New member?',
-                        style: AppTextStyles.bodyText1.copyWith(color: AppColors.greyText),
+                        style: AppTextStyles.bodyText1
+                            .copyWith(color: AppColors.greyText),
                       ),
                       TextButton(
                         onPressed: () {
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const RegisterScreen()));
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      const RegisterScreen()));
                         },
                         child: Text(
                           'Sign up',
-                          style: AppTextStyles.bodyText1.copyWith(color: AppColors.primaryColor, fontWeight: FontWeight.bold),
+                          style: AppTextStyles.bodyText1.copyWith(
+                              color: AppColors.primaryColor,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -209,16 +220,14 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Helper Widget untuk TextField
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String labelText,
-    required String hintText,
-    TextInputType keyboardType = TextInputType.text,
-    bool obscureText = false,
-    Widget? suffixIcon,
-    String? Function(String?)? validator,
-  }) {
+  Widget _buildTextField(
+      {required TextEditingController controller,
+      required String labelText,
+      required String hintText,
+      TextInputType keyboardType = TextInputType.text,
+      bool obscureText = false,
+      Widget? suffixIcon,
+      String? Function(String?)? validator}) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
@@ -238,11 +247,14 @@ class _LoginScreenState extends State<LoginScreen> {
         focusedBorder: const UnderlineInputBorder(
           borderSide: BorderSide(color: AppColors.primaryColor, width: 2),
         ),
-        labelStyle: AppTextStyles.bodyText2.copyWith(color: AppColors.greyText),
-        hintStyle: AppTextStyles.bodyText2.copyWith(color: AppColors.greyText.withOpacity(0.7)),
+        labelStyle:
+            AppTextStyles.bodyText2.copyWith(color: AppColors.greyText),
+        hintStyle: AppTextStyles.bodyText2
+            .copyWith(color: AppColors.greyText.withOpacity(0.7)),
         fillColor: AppColors.backgroundColor,
         filled: true,
-        contentPadding: const EdgeInsets.symmetric(vertical: 15.0, horizontal: 0.0),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 15.0, horizontal: 0.0),
       ),
     );
   }

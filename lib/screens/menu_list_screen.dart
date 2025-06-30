@@ -1,4 +1,4 @@
-// lib/screens/menu_list_screen.dart
+// lib/screens/menu_list_screen.dart (VERSI UPGRADE DENGAN GAMBAR DINAMIS)
 
 import 'package:flutter/material.dart';
 import 'package:sentra_coffee_frontend/models/menu.dart';
@@ -6,11 +6,23 @@ import 'package:sentra_coffee_frontend/services/api_service.dart';
 import 'package:sentra_coffee_frontend/utils/constants.dart';
 import 'package:sentra_coffee_frontend/utils/text_styles.dart';
 import 'package:sentra_coffee_frontend/screens/product_detail_screen.dart';
+import 'package:intl/intl.dart';
 
 class MenuListScreen extends StatelessWidget {
   final ApiService apiService = ApiService();
 
+  // --- PENTING: SESUAIKAN URL INI DENGAN TEMPAT LO NGETES ---
+  // Pakai localhost untuk testing di Chrome
+  final String _imageBaseUrl = 'http://localhost/SentraCoffee/uploads/';
+  // Pakai 10.0.2.2 untuk testing di Emulator Android
+  // final String _imageBaseUrl = 'http://10.0.2.2/SentraCoffee/uploads/';
+
   MenuListScreen({Key? key}) : super(key: key);
+
+  // Helper untuk format Rupiah
+  String formatRupiah(double amount) {
+    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(amount);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,47 +56,16 @@ class MenuListScreen extends StatelessWidget {
               itemCount: menus.length,
               itemBuilder: (context, index) {
                 final menu = menus[index];
+                final bool hasImage = menu.image != null && menu.image!.isNotEmpty;
+
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                  margin: const EdgeInsets.symmetric(vertical: 8.0),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: AppColors.lightGreyBackground, width: 1.0),
                   ),
                   elevation: 2,
-                  color: AppColors.backgroundColor,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: CircleAvatar(
-                      radius: 30,
-                      backgroundColor: AppColors.primaryColor.withOpacity(0.1),
-                      // --- INI BAGIAN YANG DIUBAH ---
-                      // Langsung gunakan AssetImage dan biarkan errorBuilder menangani fallback
-                      backgroundImage: AssetImage(
-                        'assets/images/${menu.namaMenu.toLowerCase().replaceAll(' ', '')}.png',
-                      ),
-                      onBackgroundImageError: (exception, stackTrace) {
-                        // Fallback jika gambar tidak ditemukan, tampilkan Icon kopi di tengah CircleAvatar
-                        print('Error loading image for ${menu.namaMenu}: $exception');
-                        // Return null di onBackgroundImageError tidak menampilkan child.
-                        // Jadi, kita bisa pakai child di CircleAvatar sebagai fallback utama.
-                      },
-                      child: (menu.namaMenu == null || menu.namaMenu.isEmpty) // Contoh fallback kalau namaMenu kosong atau tidak ada gambar
-                          ? Icon(Icons.coffee, color: AppColors.primaryColor, size: 30)
-                          : null, // Jangan pakai menu.image lagi
-                      // --- AKHIR BAGIAN YANG DIUBAH ---
-                    ),
-                    title: Text(
-                      menu.namaMenu,
-                      style: AppTextStyles.h4.copyWith(fontSize: 18, color: AppColors.textColor),
-                    ),
-                    subtitle: Text(
-                      'Kategori: ${menu.kategori}\nKetersediaan: ${menu.isAvailable ? 'Ada' : 'Kosong'}',
-                      style: AppTextStyles.bodyText2.copyWith(color: AppColors.greyText),
-                    ),
-                    trailing: Text(
-                      formatRupiah(menu.harga),
-                      style: AppTextStyles.bodyText1.copyWith(fontWeight: FontWeight.bold, color: AppColors.textColor),
-                    ),
+                  clipBehavior: Clip.antiAlias, // Agar gambar mengikuti bentuk Card
+                  child: InkWell(
                     onTap: () {
                       Navigator.push(
                         context,
@@ -92,8 +73,53 @@ class MenuListScreen extends StatelessWidget {
                           builder: (context) => ProductDetailScreen(product: menu.toJson()),
                         ),
                       );
-                      print('Menu ${menu.namaMenu} tapped!');
                     },
+                    child: Row(
+                      children: [
+                        // --- BAGIAN GAMBAR YANG DIUBAH ---
+                        SizedBox(
+                          width: 100,
+                          height: 100,
+                          child: hasImage
+                              ? Image.network(
+                                  '$_imageBaseUrl${menu.image}', // Sambungkan URL
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Center(child: Icon(Icons.broken_image_outlined, color: Colors.grey));
+                                  },
+                                )
+                              : Container( // Fallback jika tidak ada gambar
+                                  color: Colors.grey[200],
+                                  child: const Center(child: Icon(Icons.coffee_outlined, color: Colors.grey)),
+                                ),
+                        ),
+                        // --- AKHIR BAGIAN GAMBAR ---
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  menu.namaMenu,
+                                  style: AppTextStyles.h4.copyWith(fontSize: 18),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Kategori: ${menu.kategori}',
+                                  style: AppTextStyles.bodyText2.copyWith(color: AppColors.greyText),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  formatRupiah(menu.harga),
+                                  style: AppTextStyles.bodyText1.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },

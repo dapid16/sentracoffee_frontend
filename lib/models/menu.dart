@@ -1,13 +1,18 @@
-// lib/models/menu.dart
+// lib/models/menu.dart (VERSI FINAL DENGAN PERBAIKAN)
+
+import 'dart:convert';
+
+// Helper function ini tidak perlu diubah
+List<Menu> menuFromJson(String str) =>
+    List<Menu>.from(json.decode(str)["records"].map((x) => Menu.fromJson(x)));
 
 class Menu {
   final int idMenu;
   final String namaMenu;
   final String kategori;
-  final double
-      harga; // Ini adalah harga dari backend, kita akan anggap ini harga asli
+  final double harga;
   final bool isAvailable;
-  String? image; // Opsional, jika nanti ada field image dari backend
+  final String? image; // Nama properti `image` di Dart kita pertahankan, bagus!
 
   Menu({
     required this.idMenu,
@@ -18,30 +23,29 @@ class Menu {
     this.image,
   });
 
-  // Factory constructor untuk membuat objek Menu dari JSON
   factory Menu.fromJson(Map<String, dynamic> json) {
     return Menu(
-      idMenu:  json['id_menu'] as int,
-      namaMenu: json['nama_menu'] as String,
-      kategori: json['kategori'] as String,
-      // Penting: harga dari backend adalah String ("25000.00"), jadi harus diconvert ke double
+      idMenu: int.parse(json['id_menu'].toString()),
+      namaMenu: json['nama_menu'],
+      kategori: json['kategori'],
       harga: double.parse(json['harga'].toString()),
-      isAvailable: json['is_available'] as bool,
-      // image: json['image'] != null ? json['image'] as String : null,
+      // --- PERBAIKAN #1: Parsing 'is_available' lebih aman ---
+      // Mengubah angka 1 atau string '1' menjadi true, selain itu false.
+      isAvailable: json['is_available'] == 1 || json['is_available'] == '1',
+      // --- PERBAIKAN #2: Ambil dari kunci 'gambar' di JSON ---
+      // Data dari backend kuncinya 'gambar', kita simpan ke properti 'image' di Dart.
+      image: json['gambar'],
     );
   }
 
-  // Method to convert Menu object to JSON
-  // UBAH: Jangan ubah harga ke String lagi di sini!
   Map<String, dynamic> toJson() {
     return {
-      'id_menu': idMenu,
-      'nama_menu': namaMenu,
-      'kategori': kategori,
-      // HAPUS .toStringAsFixed(2)! Biarkan tetap double
-      'harga': harga, // <-- PERBAIKAN DI SINI!
-      'is_available': isAvailable,
-      'image': image,
+      "id_menu": idMenu,
+      "nama_menu": namaMenu,
+      "kategori": kategori,
+      "harga": harga,
+      "is_available": isAvailable,
+      "gambar": image, // Saat mengirim JSON, kita pakai kunci 'gambar'
     };
   }
 }

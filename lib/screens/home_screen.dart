@@ -1,24 +1,21 @@
-// lib/screens/home_screen.dart
-
+// lib/screens/home_screen.dart (VERSI FINAL)
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:provider/provider.dart';
+import 'package:sentra_coffee_frontend/services/auth_service.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:sentra_coffee_frontend/screens/product_detail_screen.dart';
-import 'package:sentra_coffee_frontend/utils/constants.dart'; // Import AppColors
-import 'package:sentra_coffee_frontend/utils/text_styles.dart'; // Import AppTextStyles
-import 'package:sentra_coffee_frontend/screens/loyalty_point_screen.dart'; // Import LoyaltyPointScreen
-import 'package:sentra_coffee_frontend/screens/cart_screen.dart'; // Import CartScreen
-import 'package:sentra_coffee_frontend/services/api_service.dart'; // Import ApiService
-import 'package:sentra_coffee_frontend/models/menu.dart'; // Import Menu model
-import 'package:sentra_coffee_frontend/screens/order_history_screen.dart'; // Import OrderHistoryScreen
+import 'package:sentra_coffee_frontend/utils/constants.dart';
+import 'package:sentra_coffee_frontend/utils/text_styles.dart';
+import 'package:sentra_coffee_frontend/screens/loyalty_point_screen.dart';
+import 'package:sentra_coffee_frontend/screens/cart_screen.dart';
+import 'package:sentra_coffee_frontend/services/api_service.dart';
+import 'package:sentra_coffee_frontend/models/menu.dart';
+import 'package:sentra_coffee_frontend/screens/order_history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  final String userName; // Terima userName
-
-  const HomeScreen({
-    Key? key,
-    required this.userName,
-  }) : super(key: key);
+  // --- Constructor sekarang simpel, tidak butuh parameter ---
+  const HomeScreen({Key? key}) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -26,16 +23,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-
   late PageController _pageController;
-  Timer? _timer; // UBAH: Jadikan _timer nullable, tidak lagi 'late'
-
-  late List<Widget> _widgetOptions; // Ini akan berisi semua screen untuk IndexedStack
-
-  Future<List<Menu>> _futureMenuItems = ApiService().fetchAllMenu();
-
-  List<Menu> _promoItems = [];
-  List<Menu> _menuItems = [];
+  Timer? _timer;
+  late Future<List<Menu>> _futureMenuItems;
 
   @override
   void initState() {
@@ -44,42 +34,20 @@ class _HomeScreenState extends State<HomeScreen> {
       viewportFraction: 0.85,
       initialPage: 0,
     );
-
-    // Inisialisasi _widgetOptions di sini setelah widget.userName tersedia
-    _widgetOptions = <Widget>[
-      _buildHomeContent(), // Konten utama Home
-      LoyaltyPointScreen(username: widget.userName), // Teruskan userName
-      OrderHistoryScreen(userName: widget.userName), // Teruskan userName
-    ];
+    _futureMenuItems = ApiService().fetchAllMenu();
   }
 
-  // Fungsi ini sudah tidak terlalu dibutuhkan karena _futureMenuItems diinisialisasi langsung
-  // Tapi bisa dipakai untuk refresh manual jika perlu
-  void _fetchMenuItems() {
-    setState(() {
-      _futureMenuItems = ApiService().fetchAllMenu();
-      _promoItems = []; // Kosongkan agar terisi ulang dari FutureBuilder
-      _menuItems = []; // Kosongkan agar terisi ulang dari FutureBuilder
-      _timer?.cancel(); // Cancel timer lama jika ada
-    });
-  }
-
-  void _startPromoAutoScroll() {
-    _timer?.cancel(); // Pastikan timer sebelumnya dibatalkan
-
-    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (_promoItems.isNotEmpty && _pageController.hasClients && _pageController.position.haveDimensions) {
-        int nextPage = (_pageController.page!.toInt() + 1);
-        if (nextPage >= _promoItems.length) {
-          nextPage = 0;
-        }
+  void _startPromoAutoScroll(List<Menu> promoItems) {
+    if (promoItems.isEmpty) return;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (_pageController.hasClients) {
+        int nextPage = (_pageController.page!.toInt() + 1) % promoItems.length;
         _pageController.animateToPage(
           nextPage,
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 400),
           curve: Curves.easeIn,
         );
-      } else if (_promoItems.isEmpty) {
-        _timer?.cancel(); // Batalkan timer jika tidak ada promo
       }
     });
   }
@@ -95,16 +63,23 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedIndex = index;
     });
-    // Tidak ada Navigator.pushReplacement di sini karena IndexedStack mengganti konten di body
-    // Jika ada BottomNavigationBarItem yang navigasi ke halaman terpisah (bukan bagian dari IndexedStack)
-    // baru gunakan Navigator.push/pushReplacement
   }
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    final String userName = authService.loggedInCustomer?.nama ?? 'Guest';
+
+    final List<Widget> widgetOptions = [
+      _buildHomeContent(),
+      const LoyaltyPointScreen(), // Panggil tanpa parameter
+      const OrderHistoryScreen(), // Panggil tanpa parameter
+    ];
+
     return Scaffold(
       backgroundColor: AppColors.lightGreyBackground,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         backgroundColor: AppColors.backgroundColor,
         elevation: 0,
         toolbarHeight: 80,
@@ -117,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: AppTextStyles.bodyText2
                       .copyWith(color: AppColors.greyText)),
               Text(
-                widget.userName, // Tampilkan userName dari widget
+                userName,
                 style: AppTextStyles.h4.copyWith(color: AppColors.textColor),
               ),
             ],
@@ -130,24 +105,22 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               Navigator.push(context,
                   MaterialPageRoute(builder: (context) => const CartScreen()));
-              print('Cart icon tapped!');
             },
           ),
           const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.person_outline,
+            icon: const Icon(Icons.logout_outlined,
                 color: AppColors.textColor, size: 28),
             onPressed: () {
-              print('Profile icon tapped!');
+              Provider.of<AuthService>(context, listen: false).logout();
             },
           ),
           const SizedBox(width: 16),
         ],
       ),
-      // Konten utama berubah berdasarkan selectedIndex
       body: IndexedStack(
         index: _selectedIndex,
-        children: _widgetOptions,
+        children: widgetOptions,
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -166,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: BottomNavigationBar(
             currentIndex: _selectedIndex,
-            onTap: _onItemTapped, // Panggil _onItemTapped untuk mengubah index
+            onTap: _onItemTapped,
             selectedItemColor: AppColors.primaryColor,
             unselectedItemColor: AppColors.greyText,
             showSelectedLabels: false,
@@ -192,7 +165,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // === _buildHomeContent: Konten asli dari Home Screen ===
   Widget _buildHomeContent() {
     return FutureBuilder<List<Menu>>(
       future: _futureMenuItems,
@@ -204,13 +176,11 @@ class _HomeScreenState extends State<HomeScreen> {
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text('Tidak ada menu tersedia.'));
         } else {
-          _menuItems = snapshot.data!;
-          _promoItems = _menuItems.take(2).toList();
-
-          if (_promoItems.isNotEmpty && (_timer == null || !_timer!.isActive)) {
-            _startPromoAutoScroll();
-          }
-
+          final List<Menu> menuItems = snapshot.data!;
+          final List<Menu> promoItems = menuItems.take(3).toList();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _startPromoAutoScroll(promoItems);
+          });
           return SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,57 +188,58 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Text(
-                    'Our Promo',
-                    style: AppTextStyles.h3.copyWith(color: AppColors.textColor),
-                  ),
+                  child: Text('Our Promo',
+                      style:
+                          AppTextStyles.h3.copyWith(color: AppColors.textColor)),
                 ),
                 const SizedBox(height: 16),
-                _promoItems.isNotEmpty
+                promoItems.isNotEmpty
                     ? Column(
                         children: [
                           SizedBox(
                             height: 220,
                             child: PageView.builder(
                               controller: _pageController,
-                              itemCount: _promoItems.length,
+                              itemCount: promoItems.length,
                               itemBuilder: (context, index) {
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                                  child: _buildMenuItemCard(_promoItems[index], isPromo: true),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0),
+                                  child: _buildMenuItemCard(promoItems[index],
+                                      isPromo: true),
                                 );
                               },
                             ),
                           ),
-                          if (_promoItems.length > 1)
+                          if (promoItems.length > 1)
                             Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 16.0),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 16.0),
                               child: SmoothPageIndicator(
                                 controller: _pageController,
-                                count: _promoItems.length,
+                                count: promoItems.length,
                                 effect: WormEffect(
                                   dotHeight: 8.0,
                                   dotWidth: 8.0,
                                   activeDotColor: AppColors.primaryColor,
-                                  dotColor: AppColors.greyText.withOpacity(0.5),
+                                  dotColor:
+                                      AppColors.greyText.withOpacity(0.5),
                                 ),
                               ),
                             ),
                         ],
                       )
                     : Center(
-                        child: Text(
-                          'No promo available',
-                          style: AppTextStyles.bodyText1.copyWith(color: AppColors.greyText),
-                        ),
+                        child: Text('No promo available',
+                            style: AppTextStyles.bodyText1
+                                .copyWith(color: AppColors.greyText)),
                       ),
                 const SizedBox(height: 32),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Text(
-                    'Our Menu',
-                    style: AppTextStyles.h3.copyWith(color: AppColors.textColor),
-                  ),
+                  child: Text('Our Menu',
+                      style:
+                          AppTextStyles.h3.copyWith(color: AppColors.textColor)),
                 ),
                 const SizedBox(height: 16),
                 GridView.builder(
@@ -279,11 +250,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisCount: 2,
                     crossAxisSpacing: 16.0,
                     mainAxisSpacing: 16.0,
-                    childAspectRatio: 0.95, // Disesuaikan untuk card yang rapi
+                    childAspectRatio: 0.95,
                   ),
-                  itemCount: _menuItems.length,
+                  itemCount: menuItems.length,
                   itemBuilder: (context, index) {
-                    return _buildMenuItemCard(_menuItems[index]);
+                    return _buildMenuItemCard(menuItems[index]);
                   },
                 ),
                 const SizedBox(height: 100),
@@ -295,8 +266,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Helper function untuk Card Menu Item
   Widget _buildMenuItemCard(Menu item, {bool isPromo = false}) {
+    final double hargaAsli = item.harga;
+    final double hargaPromo = hargaAsli * 0.9; // Diskon 10% sementara
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -305,7 +278,6 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context) => ProductDetailScreen(product: item.toJson()),
           ),
         );
-        print('Navigating to product detail for: ${item.namaMenu}');
       },
       child: Card(
         elevation: isPromo ? 8 : 4,
@@ -322,7 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(
-              height: 90.0, // Tinggi area gambar
+              height: 90.0,
               width: double.infinity,
               child: Image.asset(
                 'assets/images/${item.namaMenu.toLowerCase().replaceAll(' ', '')}.png',
@@ -331,41 +303,47 @@ class _HomeScreenState extends State<HomeScreen> {
                   return Container(
                     color: Colors.grey[200],
                     child: Center(
-                      child: Icon(Icons.broken_image, size: 50, color: Colors.grey[400]),
+                      child: Icon(Icons.broken_image,
+                          size: 50, color: Colors.grey[400]),
                     ),
                   );
                 },
               ),
             ),
-            Expanded( // Penting untuk mendorong teks ke bawah
+            Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end, // Mendorong teks ke bawah
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
                       item.namaMenu,
                       style: AppTextStyles.bodyText1.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: isPromo ? AppColors.backgroundColor : AppColors.textColor, // Teks putih untuk promo
+                        color: isPromo
+                            ? AppColors.backgroundColor
+                            : AppColors.textColor,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
                         Text(
-                          formatRupiah(item.harga),
+                          formatRupiah(hargaAsli),
                           style: AppTextStyles.bodyText2.copyWith(
-                            color: isPromo ? AppColors.greyText : AppColors.greyText, // Warna abu-abu untuk harga
+                            color: AppColors.greyText,
                             decoration: TextDecoration.lineThrough,
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          formatRupiah(item.hargaPromo), // Asumsi ada harga promo
+                          formatRupiah(hargaPromo), // Solusi Sementara
                           style: AppTextStyles.bodyText1.copyWith(
-                            color: AppColors.accentColor, // Warna hijau untuk harga promo
+                            color: Colors.green, // Solusi Sementara
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -382,7 +360,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Helper untuk format rupiah (pastikan ada di utils/constants.dart)
   String formatRupiah(double amount) {
     return 'Rp${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
   }
