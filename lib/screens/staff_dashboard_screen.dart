@@ -3,10 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sentra_coffee_frontend/services/staff_auth_service.dart';
-import 'package:sentra_coffee_frontend/models/staff.dart';
 import 'package:sentra_coffee_frontend/screens/manage_product_screen.dart';
 import 'package:sentra_coffee_frontend/screens/employee_list_screen.dart';
 import 'package:sentra_coffee_frontend/screens/new_transaction_screen.dart';
+import 'package:sentra_coffee_frontend/screens/admin_manage_promotions_screen.dart'; // <<< IMPORT BARU
 
 class StaffDashboardScreen extends StatefulWidget {
   const StaffDashboardScreen({Key? key}) : super(key: key);
@@ -44,20 +44,26 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Welcome!', style: TextStyle(color: Colors.grey, fontSize: 16)),
+            const Text('Welcome!',
+                style: TextStyle(color: Colors.grey, fontSize: 16)),
             Text(
               staffName,
-              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22),
+              style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black, size: 28),
+            icon: const Icon(Icons.shopping_cart_outlined,
+                color: Colors.black, size: 28),
             onPressed: () {},
           ),
           IconButton(
-            icon: const Icon(Icons.logout_outlined, color: Colors.black, size: 28),
+            icon: const Icon(Icons.logout_outlined,
+                color: Colors.black, size: 28),
             onPressed: () {
               Provider.of<StaffAuthService>(context, listen: false).logout();
             },
@@ -76,46 +82,59 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   Widget _buildDashboardContent(BuildContext context) {
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 4,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 16,
               children: [
                 _buildActionItem(
-                  context,
-                  Icons.inventory_2_outlined,
-                  'Manage\nProduct',
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageProductScreen()));
-                  },
-                ),
+                    context, Icons.inventory_2_outlined, 'Manage\nProduct',
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ManageProductScreen()))),
                 _buildActionItem(
-                  context, Icons.people_alt_outlined, 'List of\nEmployees',
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const EmployeeListScreen()));
-                  },
-                ),
-                _buildActionItem(context, Icons.help_outline, 'Help', onTap: () { print("Help tapped"); }),
+                    context, Icons.people_alt_outlined, 'List of\nEmployees',
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const EmployeeListScreen()))),
+                
+                // <<< INI TOMBOL BARU UNTUK PROMO >>>
+                _buildActionItem(
+                    context, Icons.campaign_outlined, 'Manage\nPromo',
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const AdminManagePromotionsScreen()))),
+                
+                _buildActionItem(context, Icons.help_outline, 'Help',
+                    onTap: () => print("Help tapped")),
               ],
             ),
-            // --- BAGIAN LAPORAN SUDAH DIHAPUS DARI SINI ---
           ],
         ),
       ),
     );
   }
 
-  Widget _buildActionItem(BuildContext context, IconData icon, String label, {VoidCallback? onTap}) {
+  Widget _buildActionItem(BuildContext context, IconData icon, String label,
+      {VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 32, color: Colors.black87),
             const SizedBox(height: 8),
@@ -129,8 +148,6 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
       ),
     );
   }
-
-  // --- FUNGSI _buildReportCard DIHAPUS KARENA SUDAH TIDAK DIPAKAI ---
 
   Widget _buildBottomSection(BuildContext context) {
     return Container(
@@ -146,15 +163,18 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const NewTransactionScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const NewTransactionScreen()),
                 );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Transaction', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: const Text('Transaction',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
           const SizedBox(height: 10),
@@ -173,8 +193,10 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
               showSelectedLabels: false,
               showUnselectedLabels: false,
               items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.storefront_outlined), label: 'Home'),
-                BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Orders'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.storefront_outlined), label: 'Home'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.receipt_long_outlined), label: 'Orders'),
               ],
             ),
           ),
