@@ -198,7 +198,7 @@ class ApiService {
       return false;
     }
   }
-  
+
   Future<bool> deleteMenu(int idMenu) async {
     final url = Uri.parse('$baseUrl/menu/delete.php');
     try {
@@ -225,6 +225,7 @@ class ApiService {
     Future<Customer?> fetchOneCustomer(int customerId) async {
     // Ganti 'read_one.php' menjadi 'read_single.php' agar sesuai dengan file-mu
     final response = await http.get(Uri.parse('$baseUrl/customer/read_single.php?id=$customerId'));
+    print("---[ApiService] Raw response from read_single.php: ${response.body}");
     if (response.statusCode == 200) {
       return Customer.fromJson(json.decode(response.body));
     }
