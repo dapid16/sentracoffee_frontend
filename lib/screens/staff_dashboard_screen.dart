@@ -1,20 +1,21 @@
-// lib/screens/admin/admin_dashboard_screen.dart (FINAL TANPA REWARDS)
+// lib/screens/staff_dashboard_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sentra_coffee_frontend/services/admin_auth_service.dart';
+import 'package:sentra_coffee_frontend/services/staff_auth_service.dart';
+import 'package:sentra_coffee_frontend/models/staff.dart';
 import 'package:sentra_coffee_frontend/screens/manage_product_screen.dart';
 import 'package:sentra_coffee_frontend/screens/employee_list_screen.dart';
 import 'package:sentra_coffee_frontend/screens/new_transaction_screen.dart';
 
-class AdminDashboardScreen extends StatefulWidget {
-  const AdminDashboardScreen({Key? key}) : super(key: key);
+class StaffDashboardScreen extends StatefulWidget {
+  const StaffDashboardScreen({Key? key}) : super(key: key);
 
   @override
-  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+  State<StaffDashboardScreen> createState() => _StaffDashboardScreenState();
 }
 
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   int _selectedIndex = 0;
 
   void _onItemTapped(int index) {
@@ -25,13 +26,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final adminAuthService = Provider.of<AdminAuthService>(context, listen: false);
-    final ownerName = adminAuthService.currentOwner?.namaOwner ?? 'Admin';
+    final staffAuthService = Provider.of<StaffAuthService>(context, listen: false);
+    final staffName = staffAuthService.currentStaff?.namaStaff ?? 'Staff';
 
-    // --- PERUBAHAN #1: Hapus halaman "Rewards" dari daftar ---
     final List<Widget> _pages = [
       _buildDashboardContent(context),
-      const Center(child: Text('Halaman Orders Admin')), // Placeholder
+      const Center(child: Text('Halaman Orders Staff')), // Placeholder
     ];
 
     return Scaffold(
@@ -46,7 +46,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             const Text('Welcome!', style: TextStyle(color: Colors.grey, fontSize: 16)),
             Text(
-              'Admin $ownerName',
+              staffName,
               style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22),
             ),
           ],
@@ -59,7 +59,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout_outlined, color: Colors.black, size: 28),
             onPressed: () {
-              Provider.of<AdminAuthService>(context, listen: false).logout();
+              Provider.of<StaffAuthService>(context, listen: false).logout();
             },
           ),
           const SizedBox(width: 8),
@@ -84,7 +84,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildAdminActionItem(
+                _buildActionItem(
                   context,
                   Icons.inventory_2_outlined,
                   'Manage\nProduct',
@@ -92,37 +92,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageProductScreen()));
                   },
                 ),
-                _buildAdminActionItem(
+                _buildActionItem(
                   context, Icons.people_alt_outlined, 'List of\nEmployees',
                   onTap: () {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const EmployeeListScreen()));
                   },
                 ),
-                _buildAdminActionItem(context, Icons.account_balance_wallet_outlined, 'Wallet', onTap: () { print("Wallet tapped"); }),
-                _buildAdminActionItem(context, Icons.help_outline, 'Help', onTap: () { print("Help tapped"); }),
+                _buildActionItem(context, Icons.help_outline, 'Help', onTap: () { print("Help tapped"); }),
               ],
             ),
-            const SizedBox(height: 40),
-            const Text(
-              'Laporan',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(child: _buildReportCard('Penjualan Mei 2024', 'Rp100.000.000', '0,00% vs bulan lalu')),
-                const SizedBox(width: 16),
-                Expanded(child: _buildReportCard('Penjualan April 2024', 'Rp100.000.000', '0,00% vs bulan lalu')),
-              ],
-            ),
-            const SizedBox(height: 20),
+            // --- BAGIAN LAPORAN SUDAH DIHAPUS DARI SINI ---
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAdminActionItem(BuildContext context, IconData icon, String label, {VoidCallback? onTap}) {
+  Widget _buildActionItem(BuildContext context, IconData icon, String label, {VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -144,25 +130,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildReportCard(String title, String amount, String comparison) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-            const SizedBox(height: 8),
-            Text(amount, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(comparison, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
+  // --- FUNGSI _buildReportCard DIHAPUS KARENA SUDAH TIDAK DIPAKAI ---
 
   Widget _buildBottomSection(BuildContext context) {
     return Container(
@@ -204,7 +172,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               unselectedItemColor: Colors.grey[600],
               showSelectedLabels: false,
               showUnselectedLabels: false,
-              // --- PERUBAHAN #2: Hapus item "Rewards" dari navigasi ---
               items: const [
                 BottomNavigationBarItem(icon: Icon(Icons.storefront_outlined), label: 'Home'),
                 BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Orders'),

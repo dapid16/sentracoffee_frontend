@@ -1,8 +1,10 @@
-// lib/models/menu.dart (VERSI FINAL DENGAN PERBAIKAN)
+// lib/models/menu.dart (VERSI GABUNGAN SEMUA MODEL)
 
 import 'dart:convert';
 
-// Helper function ini tidak perlu diubah
+//==================================================================
+// MODEL UTAMA: MENU PRODUK (BUKU MENU)
+//==================================================================
 List<Menu> menuFromJson(String str) =>
     List<Menu>.from(json.decode(str)["records"].map((x) => Menu.fromJson(x)));
 
@@ -12,7 +14,7 @@ class Menu {
   final String kategori;
   final double harga;
   final bool isAvailable;
-  final String? image; // Nama properti `image` di Dart kita pertahankan, bagus!
+  final String? image;
 
   Menu({
     required this.idMenu,
@@ -29,11 +31,7 @@ class Menu {
       namaMenu: json['nama_menu'],
       kategori: json['kategori'],
       harga: double.parse(json['harga'].toString()),
-      // --- PERBAIKAN #1: Parsing 'is_available' lebih aman ---
-      // Mengubah angka 1 atau string '1' menjadi true, selain itu false.
       isAvailable: json['is_available'] == 1 || json['is_available'] == '1',
-      // --- PERBAIKAN #2: Ambil dari kunci 'gambar' di JSON ---
-      // Data dari backend kuncinya 'gambar', kita simpan ke properti 'image' di Dart.
       image: json['gambar'],
     );
   }
@@ -45,7 +43,49 @@ class Menu {
       "kategori": kategori,
       "harga": harga,
       "is_available": isAvailable,
-      "gambar": image, // Saat mengirim JSON, kita pakai kunci 'gambar'
+      "gambar": image,
     };
   }
+}
+
+
+//==================================================================
+// MODEL TAMBAHAN: UNTUK TRANSAKSI (CATETAN PESANAN)
+// Model-model ini kita "nebeng" di file menu.dart biar nggak usah bikin file baru.
+//==================================================================
+
+
+// Model untuk item yang ada di keranjang/cart
+class TransactionCartItem {
+  final Menu menu;
+  int quantity;
+  final String size;
+  final String ristretto;
+  final String servingStyle;
+
+  TransactionCartItem({
+    required this.menu,
+    required this.quantity,
+    required this.size,
+    required this.ristretto,
+    required this.servingStyle,
+  });
+}
+
+
+// Model untuk "jembatan" data yang dibawa dari ProductOptionsScreen
+class CustomizedOrderItem {
+  final Menu menu;
+  final int quantity;
+  final String ristretto;
+  final String servingStyle;
+  final String size;
+
+  CustomizedOrderItem({
+    required this.menu,
+    required this.quantity,
+    required this.ristretto,
+    required this.servingStyle,
+    required this.size,
+  });
 }

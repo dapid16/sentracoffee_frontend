@@ -1,4 +1,4 @@
-// lib/screens/order_history_screen.dart (VERSI FINAL DENGAN PERBAIKAN)
+// lib/screens/order_history_screen.dart (VERSI TANPA "ON GOING")
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,37 +14,36 @@ class OrderHistoryScreen extends StatefulWidget {
   State<OrderHistoryScreen> createState() => _OrderHistoryScreenState();
 }
 
-class _OrderHistoryScreenState extends State<OrderHistoryScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+// --- PERUBAHAN #1: Hapus `with SingleTickerProviderStateMixin` karena TabController tidak dipakai lagi ---
+class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
+  // --- PERUBAHAN #2: Hapus TabController ---
+  // late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    // --- PERUBAHAN #3: Hapus inisialisasi TabController ---
+    // _tabController = TabController(length: 2, vsync: this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final authService = Provider.of<AuthService>(context, listen: false);
-        
-        // --- PERBAIKAN #1: Panggil .idCustomer, bukan .id atau .nama ---
-        // Asumsi model Customer lo punya properti `idCustomer`
-        final customerId = authService.loggedInCustomer?.idCustomer; 
-        
+        final customerId = authService.loggedInCustomer?.idCustomer;
+
         if (customerId != null) {
-          // --- PERBAIKAN #2: Kirim idCustomer, bukan userName ---
           Provider.of<OrderService>(context, listen: false)
-              .fetchOrders(idCustomer: customerId.toString()); // Kirim sebagai String
+              .fetchOrders(idCustomer: customerId.toString());
         }
       }
     });
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+  // --- PERUBAHAN #4: Hapus dispose untuk TabController ---
+  // @override
+  // void dispose() {
+  //   _tabController.dispose();
+  //   super.dispose();
+  // }
 
   String _formatDate(String dateString) {
     try {
@@ -57,7 +56,9 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen>
 
   String _formatRupiah(String amount) {
     final number = double.tryParse(amount) ?? 0;
-    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(number);
+    return NumberFormat.currency(
+            locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+        .format(number);
   }
 
   @override
@@ -71,38 +72,20 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen>
             backgroundColor: Colors.white,
             elevation: 1,
             title: const Text(
-              'My Orders',
-              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+              'My Orders', // Atau ganti jadi 'Order History'
+              style:
+                  TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
             ),
             centerTitle: true,
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(text: 'On going'),
-                Tab(text: 'History'),
-              ],
-              labelColor: Colors.brown,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: Colors.brown,
-            ),
+            // --- PERUBAHAN #5: Hapus `bottom` yang berisi TabBar ---
           ),
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              if (orderService.isLoading)
-                const Center(child: CircularProgressIndicator(color: Colors.brown))
-              else if (orderService.errorMessage != null)
-                Center(child: Text('Error: ${orderService.errorMessage}'))
-              else
-                _buildOrderList(orderService.onGoingOrders),
-              if (orderService.isLoading)
-                const Center(child: CircularProgressIndicator(color: Colors.brown))
-              else if (orderService.errorMessage != null)
-                Center(child: Text('Error: ${orderService.errorMessage}'))
-              else
-                _buildOrderList(orderService.historyOrders),
-            ],
-          ),
+          // --- PERUBAHAN #6: Ganti TabBarView menjadi tampilan langsung untuk history ---
+          body: orderService.isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: Colors.brown))
+              : orderService.errorMessage != null
+                  ? Center(child: Text('Error: ${orderService.errorMessage}'))
+                  : _buildOrderList(orderService.historyOrders),
         );
       },
     );
@@ -112,7 +95,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen>
     if (orders.isEmpty) {
       return const Center(
         child: Text(
-          'No orders yet!',
+          'No order history yet!', // Teks disesuaikan
           style: TextStyle(color: Colors.grey, fontSize: 16),
         ),
       );

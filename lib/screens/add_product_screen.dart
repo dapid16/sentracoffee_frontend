@@ -1,14 +1,16 @@
-// lib/screens/admin/add_product_screen.dart (FINAL DENGAN LOGIC UPLOAD & SAVE)
+// lib/screens/admin/add_product_screen.dart (FINAL BISA ADD & EDIT)
 
 import 'dart:typed_data';
-import 'dart:io'; // Meskipun tidak dipakai di web, import ini kadang dibutuhkan oleh package lain secara internal
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sentra_coffee_frontend/models/menu.dart';
 import 'package:sentra_coffee_frontend/services/api_service.dart';
 
 class AddProductScreen extends StatefulWidget {
-  const AddProductScreen({Key? key}) : super(key: key);
+  // --- PERUBAHAN #1: Tambahkan properti untuk menerima data menu yang akan diedit ---
+  final Menu? menuToEdit;
+
+  const AddProductScreen({Key? key, this.menuToEdit}) : super(key: key);
 
   @override
   State<AddProductScreen> createState() => _AddProductScreenState();
@@ -23,6 +25,31 @@ class _AddProductScreenState extends State<AddProductScreen> {
   Uint8List? _selectedImageBytes;
   String? _selectedImageName;
   bool _isLoading = false;
+
+  // --- PERUBAHAN #2: Tambahkan variabel untuk mode edit dan URL gambar lama ---
+  bool _isEditMode = false;
+  String? _existingImageUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    // --- PERUBAHAN #3: Cek jika ini mode EDIT saat halaman pertama kali dibuka ---
+    if (widget.menuToEdit != null) {
+      _isEditMode = true;
+      final menu = widget.menuToEdit!;
+
+      // Isi semua controller dengan data dari produk yang akan diedit
+      _namaController.text = menu.namaMenu;
+      _hargaController.text = menu.harga.toStringAsFixed(0);
+      _kategoriController.text = menu.kategori;
+      
+      // Simpan URL gambar yang sudah ada untuk ditampilkan
+      if (menu.image != null && menu.image!.isNotEmpty) {
+        // Ganti 'localhost' dengan IP Address jika menjalankan di HP asli
+        _existingImageUrl = 'http://localhost/SentraCoffee/uploads/${menu.image}';
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -44,12 +71,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
   }
 
-  // --- INI FUNGSI YANG DI-UPGRADE TOTAL ---
-  void _addProduct() async {
+  // --- PERUBAHAN #4: Ubah nama fungsi dari _addProduct menjadi _saveProduct dan rombak total logikanya ---
+  void _saveProduct() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    if (_selectedImageBytes == null || _selectedImageName == null) {
+    // Validasi gambar hanya wajib untuk mode Add, di mode Edit gambar opsional
+    if (!_isEditMode && (_selectedImageBytes == null || _selectedImageName == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Silakan pilih gambar produk terlebih dahulu.'), backgroundColor: Colors.orange),
       );
@@ -59,40 +87,61 @@ class _AddProductScreenState extends State<AddProductScreen> {
     setState(() => _isLoading = true);
 
     final apiService = ApiService();
-    String? newFilename;
+    String? finalImageFilename;
 
     try {
-      // TAHAP 1: UPLOAD GAMBAR
-      print('Uploading image...');
-      newFilename = await apiService.uploadImage(_selectedImageBytes!, _selectedImageName!);
-      
-      if (newFilename == null) {
-        throw Exception('Image upload failed, filename not received.');
+      // TAHAP 1: UPLOAD GAMBAR JIKA ADA GAMBAR BARU YANG DIPILIH
+      if (_selectedImageBytes != null && _selectedImageName != null) {
+        print('Uploading new image...');
+        finalImageFilename = await apiService.uploadImage(_selectedImageBytes!, _selectedImageName!);
+        if (finalImageFilename == null) {
+          throw Exception('Image upload failed, filename not received.');
+        }
+        print('Image uploaded, new filename: $finalImageFilename');
+      } else if (_isEditMode) {
+        // Jika mode edit dan tidak ada gambar baru, pakai nama file gambar yang lama
+        finalImageFilename = widget.menuToEdit!.image;
       }
-      print('Image uploaded, new filename: $newFilename');
 
-      // TAHAP 2: SIMPAN DATA PRODUK
-      final newMenu = Menu(
-        idMenu: 0,
-        namaMenu: _namaController.text,
-        kategori: _kategoriController.text,
-        harga: double.tryParse(_hargaController.text) ?? 0,
-        isAvailable: true,
-        image: newFilename, // Gunakan nama file baru dari server
-      );
-      
-      print('Creating menu data...');
-      final bool success = await apiService.createMenu(newMenu);
-
-      if (success) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Produk berhasil ditambahkan!'), backgroundColor: Colors.green),
+      // TAHAP 2: SIMPAN ATAU UPDATE DATA PRODUK
+      if (_isEditMode) {
+        // --- LOGIKA UNTUK UPDATE ---
+        final updatedMenu = Menu(
+          idMenu: widget.menuToEdit!.idMenu, // Pakai ID yang sudah ada
+          namaMenu: _namaController.text,
+          kategori: _kategoriController.text,
+          harga: double.tryParse(_hargaController.text) ?? 0,
+          isAvailable: widget.menuToEdit!.isAvailable, // Asumsi status tidak diubah di sini
+          image: finalImageFilename, // Pakai nama file baru (jika ada) atau yang lama
         );
-        Navigator.of(context).pop(true); // Kembali dengan sinyal sukses
+        print('Updating menu data...');
+        // Pastikan ada method updateMenu di ApiService
+        final bool success = await apiService.updateMenu(updatedMenu);
+        if (!success) throw Exception('Failed to update menu data.');
+
       } else {
-        throw Exception('Failed to create menu data.');
+        // --- LOGIKA UNTUK CREATE (YANG LAMA) ---
+        final newMenu = Menu(
+          idMenu: 0,
+          namaMenu: _namaController.text,
+          kategori: _kategoriController.text,
+          harga: double.tryParse(_hargaController.text) ?? 0,
+          isAvailable: true,
+          image: finalImageFilename,
+        );
+        print('Creating menu data...');
+        final bool success = await apiService.createMenu(newMenu);
+        if (!success) throw Exception('Failed to create menu data.');
       }
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Produk berhasil ${_isEditMode ? 'diperbarui' : 'ditambahkan'}!'), 
+          backgroundColor: Colors.green
+        ),
+      );
+      Navigator.of(context).pop(true);
 
     } catch (e) {
       if (mounted) {
@@ -109,14 +158,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // KODE UI TIDAK BERUBAH
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black),
-        title: const Text('Add Product', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        // --- PERUBAHAN #5: Judul AppBar dinamis sesuai mode ---
+        title: Text(
+          _isEditMode ? 'Edit Product' : 'Add Product', 
+          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
+        ),
         centerTitle: true,
       ),
       body: Column(
@@ -139,14 +191,21 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey.shade400, width: 1.5),
                         ),
-                        child: _selectedImageBytes != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(11),
-                                child: Image.memory(_selectedImageBytes!, fit: BoxFit.cover),
-                              )
-                            : const Center(
-                                child: Text('Product Image', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                              ),
+                        // --- PERUBAHAN #6: Logika tampilan gambar yang lebih kompleks ---
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(11),
+                          child: _selectedImageBytes != null
+                              // 1. Prioritas: Tampilkan gambar baru yang dipilih
+                              ? Image.memory(_selectedImageBytes!, fit: BoxFit.cover)
+                              // 2. Jika tidak ada, tampilkan gambar lama (mode edit)
+                              : (_existingImageUrl != null
+                                  ? Image.network(_existingImageUrl!, fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image)))
+                                  // 3. Jika tidak ada keduanya, tampilkan placeholder
+                                  : const Center(
+                                      child: Text('Product Image', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                                    )),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -165,7 +224,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       controller: _kategoriController,
                       labelText: 'Category',
                     ),
-                    // Kita tidak perlu input filename manual lagi
                   ],
                 ),
               ),
@@ -179,7 +237,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton(
-                      onPressed: _addProduct,
+                      // --- PERUBAHAN #7: Panggil fungsi _saveProduct ---
+                      onPressed: _saveProduct,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.white,
@@ -187,7 +246,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text('Add', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      // --- PERUBAHAN #8: Teks tombol dinamis sesuai mode ---
+                      child: Text(
+                        _isEditMode ? 'Save Changes' : 'Add', 
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+                      ),
                     ),
             ),
           ),

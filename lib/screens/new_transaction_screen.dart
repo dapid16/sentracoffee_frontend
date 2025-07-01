@@ -1,24 +1,14 @@
-// lib/screens/admin/new_transaction_screen.dart (FINAL DENGAN NAVIGASI CHECKOUT)
+// lib/screens/admin/new_transaction_screen.dart (FIX DEFINISI GANDA)
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:sentra_coffee_frontend/models/menu.dart';
+// --- PASTIKAN SEMUA MODEL DI-IMPORT DARI SATU SUMBER INI ---
+import 'package:sentra_coffee_frontend/models/menu.dart'; 
 import 'package:sentra_coffee_frontend/services/api_service.dart';
+import 'package:sentra_coffee_frontend/screens/checkout_screen.dart';
 import 'package:sentra_coffee_frontend/screens/product_options_screen.dart';
-import 'package:sentra_coffee_frontend/screens/checkout_screen.dart'; // <<< IMPORT HALAMAN TUJUAN
 
-// Model untuk item di keranjang transaksi saat ini
-class TransactionCartItem {
-  final Menu menu;
-  int quantity;
-  final String size;
-
-  TransactionCartItem({
-    required this.menu,
-    required this.quantity,
-    required this.size,
-  });
-}
+// --- PASTIKAN TIDAK ADA DEFINISI CLASS TransactionCartItem ATAU CustomizedOrderItem DI SINI LAGI ---
 
 class NewTransactionScreen extends StatefulWidget {
   const NewTransactionScreen({Key? key}) : super(key: key);
@@ -31,6 +21,10 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
   final ApiService _apiService = ApiService();
   late Future<List<Menu>> _menuFuture;
 
+  final TextEditingController _searchController = TextEditingController();
+  List<Menu> _allMenus = [];
+  List<Menu> _filteredMenus = [];
+
   final List<TransactionCartItem> _currentOrder = [];
   double _totalPrice = 0.0;
 
@@ -38,13 +32,39 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
   void initState() {
     super.initState();
     _menuFuture = _apiService.fetchAllMenu();
+    _menuFuture.then((menus) {
+      if (mounted) {
+        setState(() {
+          _allMenus = menus;
+          _filteredMenus = menus;
+        });
+      }
+    });
+    _searchController.addListener(_filterMenus);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterMenus() {
+    String query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredMenus = _allMenus
+          .where((menu) => menu.namaMenu.toLowerCase().contains(query))
+          .toList();
+    });
   }
 
   void _addItemToOrder(CustomizedOrderItem customizedItem) {
     setState(() {
       var existingItemIndex = _currentOrder.indexWhere((item) =>
           item.menu.idMenu == customizedItem.menu.idMenu &&
-          item.size == customizedItem.size);
+          item.size == customizedItem.size &&
+          item.ristretto == customizedItem.ristretto &&
+          item.servingStyle == customizedItem.servingStyle);
 
       if (existingItemIndex != -1) {
         _currentOrder[existingItemIndex].quantity += customizedItem.quantity;
@@ -53,6 +73,8 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           menu: customizedItem.menu,
           quantity: customizedItem.quantity,
           size: customizedItem.size,
+          ristretto: customizedItem.ristretto,
+          servingStyle: customizedItem.servingStyle,
         ));
       }
       _calculateTotal();
@@ -98,6 +120,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: TextField(
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Find Product',
                 prefixIcon: const Icon(Icons.menu, color: Colors.grey),
@@ -126,11 +149,15 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('Menu tidak ditemukan.'));
+                if (_filteredMenus.isEmpty &&
+                    _searchController.text.isNotEmpty) {
+                  return const Center(
+                      child: Text('Menu yang dicari tidak ada.'));
+                }
+                if (_allMenus.isEmpty) {
+                  return const Center(child: Text('Belum ada menu tersedia.'));
                 }
 
-                final menus = snapshot.data!;
                 return GridView.builder(
                   padding: const EdgeInsets.all(16.0),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -139,9 +166,9 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                   ),
-                  itemCount: menus.length,
+                  itemCount: _filteredMenus.length,
                   itemBuilder: (context, index) {
-                    final menu = menus[index];
+                    final menu = _filteredMenus[index];
                     return _buildMenuCard(menu);
                   },
                 );
@@ -152,9 +179,9 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
       ),
       floatingActionButton: _currentOrder.isNotEmpty
           ? FloatingActionButton.extended(
-              // --- INI BAGIAN YANG DI-UPGRADE ---
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                final List<TransactionCartItem>? updatedOrder =
+                    await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => CheckoutScreen(
@@ -163,8 +190,16 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                     ),
                   ),
                 );
+                if (updatedOrder != null) {
+                  setState(() {
+                    _currentOrder.clear();
+                    _currentOrder.addAll(updatedOrder);
+                    _calculateTotal();
+                  });
+                }
               },
-              label: Text('${_currentOrder.length} Items | ${_formatRupiah(_totalPrice)}'),
+              label: Text(
+                  '${_currentOrder.length} Items | ${_formatRupiah(_totalPrice)}'),
               icon: const Icon(Icons.shopping_cart_checkout),
               backgroundColor: Colors.black,
             )
@@ -182,28 +217,65 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
         onTap: () async {
           final result = await Navigator.push<CustomizedOrderItem>(
             context,
-            MaterialPageRoute(builder: (context) => ProductOptionsScreen(menu: menu)),
+            MaterialPageRoute(
+                builder: (context) => ProductOptionsScreen(menu: menu)),
           );
           if (result != null) {
             _addItemToOrder(result);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${result.menu.namaMenu} ditambahkan ke keranjang.'),
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
           }
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: Container(
-                color: Colors.grey[200],
-                child: Center(
-                    child: Icon(Icons.coffee_outlined, size: 50, color: Colors.grey[600])),
-              ),
+              child: (menu.image != null && menu.image!.isNotEmpty)
+                  ? Image.network(
+                      menu.image!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Icon(Icons.coffee_outlined, size: 50, color: Colors.grey[600]),
+                        );
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: Icon(Icons.coffee_outlined, size: 50, color: Colors.grey[600]),
+                      ),
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(menu.namaMenu, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    menu.namaMenu,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 4),
                   Text(_formatRupiah(menu.harga), style: TextStyle(color: Colors.brown)),
                 ],

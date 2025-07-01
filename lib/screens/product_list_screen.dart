@@ -1,4 +1,4 @@
-// lib/screens/admin/product_list_screen.dart (SUPER FINAL LENGKAP)
+// lib/screens/admin/product_list_screen.dart (BISA EDIT & DELETE)
 
 import 'package:flutter/material.dart';
 import 'package:sentra_coffee_frontend/models/menu.dart';
@@ -17,11 +17,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
   late Future<List<Menu>> _menuItemsFuture;
   final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
-  
+
   List<Menu> _allMenus = [];
   List<Menu> _filteredMenus = [];
 
-  final String _imageBaseUrl = 'http://localhost/SentraCoffee/uploads/';
+  // Ganti 'localhost' dengan IP Address jika menjalankan di HP asli
+  final String _imageBaseUrl = 'http://192.168.100.168/SentraCoffee/uploads/';
 
   @override
   void initState() {
@@ -58,10 +59,80 @@ class _ProductListScreenState extends State<ProductListScreen> {
       }).toList();
     });
   }
-  
+
   String _formatRupiah(double amount) {
-    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(amount);
+    return NumberFormat.currency(
+            locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
+        .format(amount);
   }
+  
+  Future<void> _navigateToEditScreen(Menu menu) async {
+    final bool? isSuccess = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddProductScreen(menuToEdit: menu),
+      ),
+    );
+    if (isSuccess == true) {
+      _loadMenus();
+    }
+  }
+
+  Future<void> _navigateToAddScreen() async {
+    final bool? isSuccess = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddProductScreen()),
+    );
+    if (isSuccess == true) {
+      _loadMenus();
+    }
+  }
+
+  // --- ✅ FUNGSI BARU UNTUK DELETE ---
+  Future<void> _deleteProduct(int idMenu) async {
+    // Tampilkan dialog konfirmasi sebelum menghapus
+    final bool? confirmDelete = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Konfirmasi Hapus'),
+          content: const Text('Apakah Anda yakin ingin menghapus produk ini?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false), // Batal
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true), // Hapus
+              child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    // Jika user menekan tombol "Hapus"
+    if (confirmDelete == true) {
+      try {
+        final bool success = await _apiService.deleteMenu(idMenu);
+        if (mounted && success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Produk berhasil dihapus!'), backgroundColor: Colors.green),
+          );
+          _loadMenus(); // Muat ulang daftar produk
+        } else {
+          throw Exception('Gagal menghapus produk dari server.');
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+  // --- BATAS FUNGSI BARU ---
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +142,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
-        title: const Text('Product', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text('Product',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
       body: Padding(
@@ -93,7 +165,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Theme.of(context).primaryColor),
+                  borderSide:
+                      BorderSide(color: Theme.of(context).primaryColor),
                 ),
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 filled: true,
@@ -112,37 +185,41 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     return Center(child: Text('Error: ${snapshot.error}'));
                   }
                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text('Tidak ada menu yang ditemukan.'));
+                    return const Center(
+                        child: Text('Tidak ada menu yang ditemukan.'));
                   }
 
-                  if (_filteredMenus.isEmpty && _searchController.text.isNotEmpty) {
-                     return const Center(child: Text('Produk tidak ditemukan.'));
+                  if (_filteredMenus.isEmpty &&
+                      _searchController.text.isNotEmpty) {
+                    return const Center(child: Text('Produk tidak ditemukan.'));
                   }
 
                   return GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      childAspectRatio: 0.8,
+                      childAspectRatio: 0.8, // Aspect ratio disesuaikan
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
                     ),
                     itemCount: _filteredMenus.length,
                     itemBuilder: (context, index) {
                       final menu = _filteredMenus[index];
-                      final bool hasImage = menu.image != null && menu.image!.isNotEmpty;
+                      final bool hasImage =
+                          menu.image != null && menu.image!.isNotEmpty;
 
+                      // --- ✅ PERUBAHAN TAMPILAN CARD DI SINI ---
                       return Card(
                         elevation: 2,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                         clipBehavior: Clip.antiAlias,
-                        child: InkWell(
-                          onTap: () {
-                            print('Produk ${menu.namaMenu} diklik');
-                          },
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: InkWell( // Aksi Edit hanya pada gambar
+                                onTap: () => _navigateToEditScreen(menu),
                                 child: Container(
                                   width: double.infinity,
                                   color: Colors.grey[200],
@@ -150,42 +227,64 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                       ? Image.network(
                                           '$_imageBaseUrl${menu.image}',
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return const Center(child: Icon(Icons.broken_image, color: Colors.grey, size: 40));
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                            return const Center(
+                                                child: Icon(Icons.broken_image,
+                                                    color: Colors.grey,
+                                                    size: 40));
                                           },
                                         )
                                       : const Center(
-                                          child: Icon(Icons.coffee, color: Colors.grey, size: 40),
+                                          child: Icon(Icons.coffee,
+                                              color: Colors.grey, size: 40),
                                         ),
                                 ),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      menu.namaMenu,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 8, 0, 8), // Sesuaikan padding
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          menu.namaMenu,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _formatRupiah(menu.harga),
+                                          style: TextStyle(
+                                            color: Theme.of(context).primaryColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _formatRupiah(menu.harga),
-                                      style: TextStyle(
-                                        color: Theme.of(context).primaryColor,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  // Tombol Delete
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                    onPressed: () => _deleteProduct(menu.idMenu),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       );
+                      // --- BATAS PERUBAHAN TAMPILAN CARD ---
                     },
                   );
                 },
@@ -195,15 +294,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final bool? isSuccess = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddProductScreen()),
-          );
-          if (isSuccess == true) {
-            _loadMenus();
-          }
-        },
+        onPressed: _navigateToAddScreen,
         backgroundColor: Colors.blueGrey[900],
         child: const Icon(Icons.add),
       ),

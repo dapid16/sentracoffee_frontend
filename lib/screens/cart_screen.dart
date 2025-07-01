@@ -2,10 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import 'package:sentra_coffee_frontend/models/cart.dart';
 import 'package:sentra_coffee_frontend/screens/payment_screen.dart';
-import 'package:sentra_coffee_frontend/utils/constants.dart'; // <-- Pastikan ini sudah import formatRupiah
+import 'package:sentra_coffee_frontend/utils/constants.dart';
 import 'package:sentra_coffee_frontend/utils/text_styles.dart';
+
 
 class CartScreen extends StatefulWidget {
   const CartScreen({Key? key}) : super(key: key);
@@ -41,11 +43,13 @@ class _CartScreenState extends State<CartScreen> {
                 ? Center(
                     child: Text(
                       'Keranjang masih kosong!',
-                      style: AppTextStyles.bodyText1.copyWith(color: AppColors.greyText),
+                      style: AppTextStyles.bodyText1
+                          .copyWith(color: AppColors.greyText),
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 16.0),
                     itemCount: cartService.items.length,
                     itemBuilder: (context, index) {
                       final item = cartService.items[index];
@@ -60,7 +64,8 @@ class _CartScreenState extends State<CartScreen> {
                             color: Colors.red.withOpacity(0.8),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.delete, color: Colors.white, size: 30),
+                          child: const Icon(Icons.delete,
+                              color: Colors.white, size: 30),
                         ),
                         onDismissed: (direction) {
                           cartService.removeItem(item.id);
@@ -101,13 +106,15 @@ class _CartScreenState extends State<CartScreen> {
                   children: [
                     Text(
                       'Total Price',
-                      style: AppTextStyles.h4.copyWith(color: AppColors.darkGrey),
+                      style:
+                          AppTextStyles.h4.copyWith(color: AppColors.darkGrey),
                     ),
                     Consumer<CartService>(
                       builder: (context, cart, child) {
                         return Text(
-                          formatRupiah(cart.totalPrice), // <-- UBAH DI SINI
-                          style: AppTextStyles.h3.copyWith(color: AppColors.primaryColor),
+                          formatRupiah(cart.totalPrice),
+                          style: AppTextStyles.h3
+                              .copyWith(color: AppColors.primaryColor),
                         );
                       },
                     ),
@@ -121,36 +128,20 @@ class _CartScreenState extends State<CartScreen> {
                     onPressed: () {
                       if (cartService.items.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Keranjang masih kosong! Tidak bisa checkout.')),
+                          const SnackBar(
+                              content: Text(
+                                  'Keranjang masih kosong! Tidak bisa checkout.')),
                         );
                         return;
                       }
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (BuildContext context) {
-                          return DraggableScrollableSheet(
-                            initialChildSize: 0.9,
-                            minChildSize: 0.5,
-                            maxChildSize: 0.95,
-                            expand: false,
-                            builder: (BuildContext context, ScrollController scrollController) {
-                              return Container(
-                                decoration: const BoxDecoration(
-                                  color: AppColors.backgroundColor,
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: Radius.circular(25.0),
-                                    topRight: Radius.circular(25.0),
-                                  ),
-                                ),
-                                child: PaymentScreen(
-                                  totalPrice: cartService.totalPrice,
-                                ),
-                              );
-                            },
-                          );
-                        },
+                      // Navigasi ke PaymentScreen tanpa bottom sheet, langsung buka halaman baru
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PaymentScreen(
+                            totalPrice: cartService.totalPrice,
+                          ),
+                        ),
                       );
                     },
                     style: ElevatedButton.styleFrom(
@@ -165,7 +156,8 @@ class _CartScreenState extends State<CartScreen> {
                       children: [
                         const Icon(Icons.payment, color: Colors.white),
                         const SizedBox(width: 8),
-                        Text('Lanjut ke Pembayaran', style: AppTextStyles.buttonText),
+                        Text('Lanjut ke Pembayaran',
+                            style: AppTextStyles.buttonText),
                       ],
                     ),
                   ),
@@ -208,7 +200,9 @@ class _CartScreenState extends State<CartScreen> {
                       color: Colors.grey[200],
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Center(child: Icon(Icons.broken_image, size: 30, color: Colors.grey[400])),
+                    child: Center(
+                        child: Icon(Icons.broken_image,
+                            size: 30, color: Colors.grey[400])),
                   );
                 },
               ),
@@ -218,11 +212,14 @@ class _CartScreenState extends State<CartScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.name, style: AppTextStyles.h4.copyWith(fontSize: 16, color: AppColors.textColor)),
+                  Text(item.name,
+                      style: AppTextStyles.h4
+                          .copyWith(fontSize: 16, color: AppColors.textColor)),
                   const SizedBox(height: 4),
-                  Text(item.customizations, style: AppTextStyles.bodyText2.copyWith(color: AppColors.greyText)),
+                  Text(item.customizations,
+                      style: AppTextStyles.bodyText2
+                          .copyWith(color: AppColors.greyText)),
                   const SizedBox(height: 4),
-                  Text('x${item.quantity}', style: AppTextStyles.bodyText1.copyWith(fontWeight: FontWeight.bold, color: AppColors.textColor)),
                 ],
               ),
             ),
@@ -230,23 +227,27 @@ class _CartScreenState extends State<CartScreen> {
             Column(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.add_circle, color: AppColors.primaryColor),
+                  icon: const Icon(Icons.add_circle,
+                      color: AppColors.primaryColor),
                   onPressed: () {
-                    Provider.of<CartService>(context, listen: false).increaseQuantity(item.id);
+                    Provider.of<CartService>(context, listen: false)
+                        .increaseQuantity(item.id);
                   },
                 ),
                 Text('${item.quantity}', style: AppTextStyles.bodyText1),
                 IconButton(
-                  icon: const Icon(Icons.remove_circle, color: AppColors.primaryColor),
+                  icon: const Icon(Icons.remove_circle,
+                      color: AppColors.primaryColor),
                   onPressed: () {
-                    Provider.of<CartService>(context, listen: false).decreaseQuantity(item.id);
+                    Provider.of<CartService>(context, listen: false)
+                        .decreaseQuantity(item.id);
                   },
                 ),
               ],
             ),
             const SizedBox(width: 16),
             Text(
-              formatRupiah(totalItemPrice), // <-- UBAH DI SINI
+              formatRupiah(totalItemPrice),
               style: AppTextStyles.h4.copyWith(color: AppColors.textColor),
             ),
           ],

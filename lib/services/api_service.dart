@@ -1,24 +1,20 @@
 // lib/services/api_service.dart
 
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:sentra_coffee_frontend/models/menu.dart';
 import 'package:sentra_coffee_frontend/models/customer.dart';
-import 'package:sentra_coffee_frontend/models/cart.dart';
-import 'dart:typed_data';
 import 'package:sentra_coffee_frontend/models/staff.dart';
 
+
 class ApiService {
-  // Pastikan ini adalah alamat yang benar untuk lingkungan lo
-  // Jika pakai Chrome, bisa http://localhost/ atau http://127.0.0.1/
-  final String _baseUrl =
-      'http://localhost/SentraCoffee/api/'; // <-- COBA PAKAI 127.0.0.1
+  // Menggunakan IP Address agar bisa diakses dari Chrome
+  final String baseUrl = "http://localhost/SentraCoffee/api";
 
   // --- Endpoint untuk Menu ---
   Future<List<Menu>> fetchAllMenu() async {
-    // UBAH: Hapus .php dari URL
-    final response =
-        await http.get(Uri.parse('${_baseUrl}menu/read.php')); // <-- HAPUS .php
+    final response = await http.get(Uri.parse('$baseUrl/menu/read.php'));
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> responseData = json.decode(response.body);
@@ -26,208 +22,126 @@ class ApiService {
           responseData['records'] is List) {
         List<dynamic> menuJson = responseData['records'];
         return menuJson.map((json) => Menu.fromJson(json)).toList();
-      } else {
-        throw Exception(
-            'Format respons API menu tidak valid: Tidak ada kunci "records".');
       }
-    } else {
-      throw Exception('Gagal memuat menu. Status Code: ${response.statusCode}');
     }
-  }
-
-  // --- Endpoint untuk Registrasi Customer ---
-  Future<Map<String, dynamic>> registerUser(
-      String nama, String email, String password, String? noHp) async {
-    // UBAH: Hapus .php dari URL
-    final response = await http.post(
-      Uri.parse('${_baseUrl}customer/create.php'), // <-- HAPUS .php
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'nama': nama,
-        'email': email,
-        'password': password,
-        'no_hp': noHp,
-      }),
-    );
-
-    final responseData = json.decode(response.body);
-    if (response.statusCode == 201) {
-      return {'success': true, 'message': responseData['message']};
-    } else {
-      return {
-        'success': false,
-        'message': responseData['message'] ?? 'Registrasi gagal.'
-      };
-    }
-  }
-
-  // Tambahkan fungsi ini di dalam class ApiService
-// Hapus atau beri komentar pada fungsi loginUser() dan loginOwner() yang lama
-
-  Future<Map<String, dynamic>> unifiedLogin(
-      String email, String password) async {
-    final url = Uri.parse(
-        'http://localhost/SentraCoffee/api/auth/login.php'); // URL endpoint baru kita
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': email,
-          'password': password,
-        }),
-      );
-      return json.decode(response.body);
-    } catch (e) {
-      // Jika ada error koneksi, kembalikan response error custom
-      return {
-        'success': false,
-        'message': 'Gagal terhubung ke server: $e',
-      };
-    }
-  }
-
-  // TODO: Tambahkan method lain untuk orders, dll.
-  // --- Endpoint untuk Membuat Pesanan (Transaksi) Baru ---
-  Future<Map<String, dynamic>> createOrder({
-    required int idCustomer,
-    required String paymentMethod,
-    required double totalAmount,
-    required int pointsEarned, // Poin yang didapat dari transaksi ini
-    required List<CartItem> cartItems, // Detail item dari keranjang
-    String status = 'Completed', // Default status
-    int idStaff = 1, // Asumsi default id_staff=1, ganti jika ada logika staff
-  }) async {
-    // Siapkan transaction_details dalam format yang diharapkan backend
-    List<Map<String, dynamic>> transactionDetails = cartItems.map((item) {
-      return {
-        'id_menu': item.idMenu, // Asumsi CartItem punya idMenu
-        'quantity': item.quantity,
-        'subtotal':
-            item.pricePerItem * item.quantity, // Hitung subtotal per item
-      };
-    }).toList();
-
-    final response = await http.post(
-      Uri.parse('${_baseUrl}transaction/create'), // Endpoint create transaksi
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'id_customer': idCustomer,
-        'id_staff': idStaff,
-        'payment_method': paymentMethod,
-        'total_amount': totalAmount,
-        'points_earned': pointsEarned,
-        'status': status,
-        'transaction_details': transactionDetails,
-      }),
-    );
-
-    final responseData = json.decode(response.body);
-    if (response.statusCode == 201) {
-      // HTTP 201 Created untuk sukses
-      return {
-        'success': true,
-        'message': responseData['message'],
-        'id_transaction': responseData['id_transaction']
-      };
-    } else {
-      return {
-        'success': false,
-        'message': responseData['message'] ?? 'Gagal membuat pesanan.'
-      };
-    }
+    throw Exception('Gagal memuat menu. Status Code: ${response.statusCode}');
   }
 
   Future<bool> createMenu(Menu menuData) async {
-    final url = Uri.parse('http://localhost/SentraCoffee/api/menu/create.php');
+    final response = await http.post(
+      Uri.parse('$baseUrl/menu/create.php'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(menuData.toJson()),
+    );
+    return response.statusCode == 201;
+  }
 
+  Future<String?> uploadImage(Uint8List imageBytes, String filename) async {
+    var request =
+        http.MultipartRequest('POST', Uri.parse('$baseUrl/menu/upload_image.php'));
+    request.files
+        .add(http.MultipartFile.fromBytes('image', imageBytes, filename: filename));
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      var responseData = json.decode(response.body);
+      if (responseData['success'] == true) {
+        return responseData['filename'];
+      }
+    }
+    return null;
+  }
+  
+  // --- ✅ INI METHOD YANG DITAMBAHKAN ---
+  Future<bool> updateMenu(Menu menu) async {
+    // URL ke API update di backend kamu
+    final url = Uri.parse('$baseUrl/menu/update_menu.php');
+    
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(
-            menuData.toJson()), // Kita pakai method toJson dari model Menu
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        // Kirim data menu dalam format JSON
+        body: json.encode(menu.toJson()), 
       );
 
-      if (response.statusCode == 201) {
-        // 201 artinya 'Created'
-        print('Menu created successfully: ${response.body}');
-        return true;
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        // Cek jika respon dari backend adalah 'success'
+        return responseData['status'] == 'success';
       } else {
-        print(
-            'Failed to create menu. Status: ${response.statusCode}, Body: ${response.body}');
+        // Jika server merespon dengan error (spt 404, 500)
+        print('Server error on updateMenu: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
-      print('Error creating menu: $e');
+      // Jika ada error koneksi atau lainnya
+      print('Error connecting to server on updateMenu: $e');
       return false;
     }
   }
 
-// Tambahkan fungsi ini di dalam class ApiService
-
-// Fungsi untuk upload gambar dan mendapatkan nama filenya
-  Future<String?> uploadImage(Uint8List imageBytes, String filename) async {
-    var uri =
-        Uri.parse('http://localhost/SentraCoffee/api/menu/upload_image.php');
-    var request = http.MultipartRequest('POST', uri);
-
-    // Buat file multipart dari data bytes
-    var multipartFile = http.MultipartFile.fromBytes(
-      'image', // 'image' harus sama dengan key di `$_FILES['image']` pada PHP
-      imageBytes,
-      filename: filename,
-    );
-
-    request.files.add(multipartFile);
-
-    try {
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 200) {
-        var responseData = json.decode(response.body);
-        if (responseData['success'] == true) {
-          return responseData[
-              'filename']; // Kembalikan nama file baru dari server
-        }
-      }
-      return null;
-    } catch (e) {
-      print("Image upload error: $e");
-      return null;
-    }
-  }
-
-  Future<List<Staff>> fetchAllStaff() async {
-  final url = Uri.parse('http://localhost/SentraCoffee/api/staff/read.php');
-  try {
-    final response = await http.get(url);
-    if (response.statusCode == 200) {
-      // Gunakan helper staffFromJson yang sudah kita buat di model
-      return staffFromJson(response.body);
-    } else {
-      throw Exception('Gagal memuat daftar staff');
-    }
-  } catch (e) {
-    throw Exception('Error fetching staff: $e');
-  }
-}
-
-// Tambahkan di dalam class ApiService
-Future<bool> createStaff({
-  required String namaStaff,
-  required String email,
-  required String password,
-  required String role,
-  String? noHp,
-  required int idOwner,
-}) async {
-  final url = Uri.parse('http://localhost/SentraCoffee/api/staff/create.php');
-  try {
+  // --- Endpoint untuk Customer ---
+  Future<Map<String, dynamic>> registerUser(
+      String nama, String email, String password, String? noHp) async {
     final response = await http.post(
-      url,
+      Uri.parse('$baseUrl/customer/create.php'),
+      headers: {'Content-Type': 'application/json'},
+      body: json
+          .encode({'nama': nama, 'email': email, 'password': password, 'no_hp': noHp}),
+    );
+    return json.decode(response.body);
+  }
+
+  Future<List<Customer>> fetchAllCustomers() async {
+    final response = await http.get(Uri.parse('$baseUrl/customer/read.php'));
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      if (data.containsKey('records') && data['records'] is List) {
+        return (data['records'] as List)
+            .map((json) => Customer.fromJson(json))
+            .toList();
+      }
+    }
+    throw Exception('Failed to load customers');
+  }
+
+  // --- Endpoint untuk Auth ---
+     Future<Map<String, dynamic>> unifiedLogin(
+      String email, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/login.php'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email, 'password': password}),
+    );
+    return json.decode(response.body);
+  }
+
+  // --- Endpoint untuk Staff ---
+  Future<List<Staff>> fetchAllStaff() async {
+    final response = await http.get(Uri.parse('$baseUrl/staff/read.php'));
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      if (data.containsKey('records') && data['records'] is List) {
+        return (data['records'] as List)
+            .map((json) => Staff.fromJson(json))
+            .toList();
+      }
+    }
+    throw Exception('Failed to load staff');
+  }
+
+  Future<bool> createStaff({
+    required String namaStaff,
+    required String email,
+    required String password,
+    required String role,
+    String? noHp,
+    required int idOwner,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/staff/create.php'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
         'nama_staff': namaStaff,
@@ -238,13 +152,82 @@ Future<bool> createStaff({
         'id_owner': idOwner,
       }),
     );
-    if (response.statusCode == 201) {
-      return true;
-    }
-    return false;
-  } catch (e) {
-    print('Error creating staff: $e');
-    return false;
+    return response.statusCode == 201;
   }
-}
+
+  // --- Endpoint untuk Transaksi (Kasir/Admin) ---
+   Future<bool> createTransaction({
+    required int customerId,
+    required int staffId,
+    required String paymentMethod,
+    required double totalAmount,
+    required List<TransactionCartItem> items, // <<< Tipe ini didapat dari menu.dart
+    int? pointsUsed,
+  }) async {
+    // Ubah List<TransactionCartItem> menjadi format JSON yang bisa dikirim
+    List<Map<String, dynamic>> itemsJson = items.map((item) {
+      return {
+        'id_menu': item.menu.idMenu,
+        'quantity': item.quantity,
+        'subtotal': item.menu.harga * item.quantity,
+      };
+    }).toList();
+
+    Map<String, dynamic> requestBody = {
+      'id_customer': customerId,
+      'id_staff': staffId,
+      'payment_method': paymentMethod,
+      'total_amount': totalAmount,
+      'details': itemsJson,
+    };
+    
+    if (pointsUsed != null) {
+      requestBody['points_used'] = pointsUsed;
+    }
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/transaction/create.php'),
+      headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      body: jsonEncode(requestBody),
+    );
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return true;
+    } else {
+      print('Failed to create transaction: ${response.body}');
+      return false;
+    }
+  }
+  
+  Future<bool> deleteMenu(int idMenu) async {
+    final url = Uri.parse('$baseUrl/menu/delete.php');
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        // Kirim ID dalam format JSON di body
+        body: json.encode({'id_menu': idMenu}),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        return responseData['status'] == 'success';
+      } else {
+        print('Server error on deleteMenu: ${response.statusCode} - ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('Error connecting to server on deleteMenu: $e');
+      return false;
+    }
+  }
+
+    Future<Customer?> fetchOneCustomer(int customerId) async {
+    // Ganti 'read_one.php' menjadi 'read_single.php' agar sesuai dengan file-mu
+    final response = await http.get(Uri.parse('$baseUrl/customer/read_single.php?id=$customerId'));
+    if (response.statusCode == 200) {
+      return Customer.fromJson(json.decode(response.body));
+    }
+    return null;
+  }
 }

@@ -1,4 +1,4 @@
-// lib/services/auth_service.dart (VERSI SUPER LOGIN)
+// lib/services/auth_service.dart
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -6,7 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sentra_coffee_frontend/models/customer.dart';
 import 'package:sentra_coffee_frontend/services/api_service.dart';
 
-class AuthService extends ChangeNotifier {
+class AuthService with ChangeNotifier {
+  // --- PERBAIKAN #1: Deklarasikan ApiService di sini ---
+  final ApiService _apiService = ApiService();
+  
   Customer? _loggedInCustomer;
 
   Customer? get loggedInCustomer => _loggedInCustomer;
@@ -26,21 +29,15 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // --- FUNGSI LOGIN LAMA KITA GANTI DENGAN INI ---
-  // Fungsi ini tidak lagi memanggil API, hanya menerima data dan menyimpan state.
   Future<void> loginWithCustomerData(Customer customerData) async {
     _loggedInCustomer = customerData;
     final prefs = await SharedPreferences.getInstance();
-    // Simpan data customer ke SharedPreferences
     await prefs.setString(
         'loggedInCustomer', json.encode(_loggedInCustomer!.toJson()));
     
-    // Beri tahu seluruh aplikasi bahwa customer sudah login
     notifyListeners();
     debugPrint('AuthService: Customer ${customerData.nama} has been set as logged in.');
   }
-  // --- AKHIR DARI PERUBAHAN ---
-
 
   Future<void> logout() async {
     _loggedInCustomer = null;
@@ -50,7 +47,6 @@ class AuthService extends ChangeNotifier {
     print('Logout berhasil.');
   }
 
-  // Fungsi register tidak perlu diubah, logikanya sudah benar.
   Future<String> register(
       String nama, String email, String password, String? noHp) async {
     try {
@@ -65,6 +61,27 @@ class AuthService extends ChangeNotifier {
       }
     } catch (e) {
       return 'Error Registrasi: $e';
+    }
+  }
+  
+  // --- PERBAIKAN #2: Perbaiki fungsi refresh ---
+  Future<void> refreshLoggedInCustomerData() async {
+    if (isLoggedIn) {
+      // Panggil fungsi dari _apiService yang sudah dideklarasikan di atas
+      final updatedCustomer = await _apiService.fetchOneCustomer(loggedInCustomer!.idCustomer);
+      
+      if (updatedCustomer != null) {
+        // Assign ke variabel private _loggedInCustomer, bukan getter-nya
+        _loggedInCustomer = updatedCustomer;
+
+        // Simpan juga data terbaru ke SharedPreferences agar sesi tetap update
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            'loggedInCustomer', json.encode(_loggedInCustomer!.toJson()));
+
+        // Beri tahu UI untuk update tampilan
+        notifyListeners(); 
+      }
     }
   }
 }
