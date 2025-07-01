@@ -1,4 +1,4 @@
-// lib/screens/admin/admin_dashboard_screen.dart (FINAL TANPA REWARDS)
+// lib/screens/admin_dashboard_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +6,8 @@ import 'package:sentra_coffee_frontend/services/admin_auth_service.dart';
 import 'package:sentra_coffee_frontend/screens/manage_product_screen.dart';
 import 'package:sentra_coffee_frontend/screens/employee_list_screen.dart';
 import 'package:sentra_coffee_frontend/screens/new_transaction_screen.dart';
+import 'package:sentra_coffee_frontend/screens/admin_wallet_screen.dart';
+import 'package:sentra_coffee_frontend/screens/admin_manage_promotions_screen.dart'; // <<< IMPORT BARU
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -25,10 +27,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final adminAuthService = Provider.of<AdminAuthService>(context, listen: false);
+    final adminAuthService =
+        Provider.of<AdminAuthService>(context, listen: false);
     final ownerName = adminAuthService.currentOwner?.namaOwner ?? 'Admin';
 
-    // --- PERUBAHAN #1: Hapus halaman "Rewards" dari daftar ---
     final List<Widget> _pages = [
       _buildDashboardContent(context),
       const Center(child: Text('Halaman Orders Admin')), // Placeholder
@@ -44,20 +46,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Welcome!', style: TextStyle(color: Colors.grey, fontSize: 16)),
+            const Text('Welcome!',
+                style: TextStyle(color: Colors.grey, fontSize: 16)),
             Text(
               'Admin $ownerName',
-              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22),
+              style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black, size: 28),
+            icon: const Icon(Icons.shopping_cart_outlined,
+                color: Colors.black, size: 28),
             onPressed: () {},
           ),
           IconButton(
-            icon: const Icon(Icons.logout_outlined, color: Colors.black, size: 28),
+            icon: const Icon(Icons.logout_outlined,
+                color: Colors.black, size: 28),
             onPressed: () {
               Provider.of<AdminAuthService>(context, listen: false).logout();
             },
@@ -81,38 +89,63 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 4,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 16,
               children: [
                 _buildAdminActionItem(
-                  context,
-                  Icons.inventory_2_outlined,
-                  'Manage\nProduct',
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const ManageProductScreen()));
-                  },
-                ),
+                    context, Icons.inventory_2_outlined, 'Manage\nProduct',
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ManageProductScreen()))),
                 _buildAdminActionItem(
-                  context, Icons.people_alt_outlined, 'List of\nEmployees',
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const EmployeeListScreen()));
-                  },
-                ),
-                _buildAdminActionItem(context, Icons.account_balance_wallet_outlined, 'Wallet', onTap: () { print("Wallet tapped"); }),
-                _buildAdminActionItem(context, Icons.help_outline, 'Help', onTap: () { print("Help tapped"); }),
+                    context, Icons.people_alt_outlined, 'List of\nEmployees',
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const EmployeeListScreen()))),
+                _buildAdminActionItem(
+                    context, Icons.account_balance_wallet_outlined, 'Wallet',
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const WalletScreen()))),
+                
+                // <<< INI TOMBOL BARU UNTUK PROMO >>>
+                _buildAdminActionItem(
+                    context, Icons.campaign_outlined, 'Manage\nPromo',
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const AdminManagePromotionsScreen()))),
+                
+                _buildAdminActionItem(context, Icons.help_outline, 'Help',
+                    onTap: () => print("Help tapped")),
               ],
             ),
             const SizedBox(height: 40),
             const Text(
               'Laporan',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _buildReportCard('Penjualan Mei 2024', 'Rp100.000.000', '0,00% vs bulan lalu')),
+                Expanded(
+                    child: _buildReportCard('Penjualan Mei 2024',
+                        'Rp100.000.000', '0,00% vs bulan lalu')),
                 const SizedBox(width: 16),
-                Expanded(child: _buildReportCard('Penjualan April 2024', 'Rp100.000.000', '0,00% vs bulan lalu')),
+                Expanded(
+                    child: _buildReportCard('Penjualan April 2024',
+                        'Rp100.000.000', '0,00% vs bulan lalu')),
               ],
             ),
             const SizedBox(height: 20),
@@ -122,14 +155,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildAdminActionItem(BuildContext context, IconData icon, String label, {VoidCallback? onTap}) {
+  Widget _buildAdminActionItem(BuildContext context, IconData icon, String label,
+      {VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 32, color: Colors.black87),
             const SizedBox(height: 8),
@@ -153,11 +187,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+            Text(title,
+                style: const TextStyle(color: Colors.grey, fontSize: 14)),
             const SizedBox(height: 8),
-            Text(amount, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(amount,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text(comparison, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(comparison,
+                style: const TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
       ),
@@ -178,15 +216,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const NewTransactionScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const NewTransactionScreen()),
                 );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Transaction', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: const Text('Transaction',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
           const SizedBox(height: 10),
@@ -204,10 +245,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               unselectedItemColor: Colors.grey[600],
               showSelectedLabels: false,
               showUnselectedLabels: false,
-              // --- PERUBAHAN #2: Hapus item "Rewards" dari navigasi ---
               items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.storefront_outlined), label: 'Home'),
-                BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Orders'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.storefront_outlined), label: 'Home'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.receipt_long_outlined), label: 'Orders'),
               ],
             ),
           ),

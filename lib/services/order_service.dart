@@ -1,4 +1,4 @@
-// lib/services/order_service.dart (VERSI FINAL DENGAN PERBAIKAN FILTER)
+// lib/services/order_service.dart
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -7,7 +7,7 @@ import 'package:sentra_coffee_frontend/models/order.dart';
 
 class OrderService with ChangeNotifier {
   final String _baseUrl =
-      'http://localhost/SentraCoffee/api/transaction/read.php'; // Pakai localhost untuk Chrome
+      'http://localhost/SentraCoffee/api/transaction/read.php';
 
   List<Order> _allOrders = [];
   bool _isLoading = false;
@@ -17,12 +17,10 @@ class OrderService with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  // Filter order berdasarkan status
   List<Order> get onGoingOrders => _allOrders
       .where((order) => order.status.toLowerCase() == 'on going')
       .toList();
 
-  // --- PERBAIKAN DI SINI ---
   List<Order> get historyOrders => _allOrders
       .where((order) => order.status.toLowerCase() == 'completed')
       .toList();
@@ -34,7 +32,6 @@ class OrderService with ChangeNotifier {
 
     try {
       final url = Uri.parse('$_baseUrl?id_customer=$idCustomer');
-
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -64,9 +61,13 @@ class OrderService with ChangeNotifier {
     }
   }
 
-  // Fungsi addOrder kita biarkan dulu
-  Future<bool> addOrder(Map<String, dynamic> orderData) async {
-    // ...
-    return false;
+  // <<< TAMBAHKAN FUNGSI BARU INI >>>
+  // Fungsi untuk membersihkan data pesanan dari state
+  void clearOrders() {
+    _allOrders = [];
+    _errorMessage = null;
+    _isLoading = false;
+    notifyListeners();
+    debugPrint('OrderService state has been cleared.');
   }
 }

@@ -6,20 +6,18 @@ import 'package:http/http.dart' as http;
 import 'package:sentra_coffee_frontend/models/menu.dart';
 import 'package:sentra_coffee_frontend/models/customer.dart';
 import 'package:sentra_coffee_frontend/models/staff.dart';
-
+import 'package:sentra_coffee_frontend/models/wallet_report.dart';
+import 'package:sentra_coffee_frontend/models/loyalty_history.dart';
+import 'package:sentra_coffee_frontend/models/promotion.dart';
 
 class ApiService {
-  // Menggunakan IP Address agar bisa diakses dari Chrome
   final String baseUrl = "http://localhost/SentraCoffee/api";
 
-  // --- Endpoint untuk Menu ---
   Future<List<Menu>> fetchAllMenu() async {
     final response = await http.get(Uri.parse('$baseUrl/menu/read.php'));
-
     if (response.statusCode == 200) {
       final Map<String, dynamic> responseData = json.decode(response.body);
-      if (responseData.containsKey('records') &&
-          responseData['records'] is List) {
+      if (responseData.containsKey('records') && responseData['records'] is List) {
         List<dynamic> menuJson = responseData['records'];
         return menuJson.map((json) => Menu.fromJson(json)).toList();
       }
@@ -37,13 +35,10 @@ class ApiService {
   }
 
   Future<String?> uploadImage(Uint8List imageBytes, String filename) async {
-    var request =
-        http.MultipartRequest('POST', Uri.parse('$baseUrl/menu/upload_image.php'));
-    request.files
-        .add(http.MultipartFile.fromBytes('image', imageBytes, filename: filename));
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/menu/upload_image.php'));
+    request.files.add(http.MultipartFile.fromBytes('image', imageBytes, filename: filename));
     var streamedResponse = await request.send();
     var response = await http.Response.fromStream(streamedResponse);
-
     if (response.statusCode == 200) {
       var responseData = json.decode(response.body);
       if (responseData['success'] == true) {
@@ -52,149 +47,22 @@ class ApiService {
     }
     return null;
   }
-  
-  // --- ✅ INI METHOD YANG DITAMBAHKAN ---
+
   Future<bool> updateMenu(Menu menu) async {
-    // URL ke API update di backend kamu
     final url = Uri.parse('$baseUrl/menu/update_menu.php');
-    
     try {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
-        // Kirim data menu dalam format JSON
-        body: json.encode(menu.toJson()), 
+        body: json.encode(menu.toJson()),
       );
-
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
-        // Cek jika respon dari backend adalah 'success'
         return responseData['status'] == 'success';
-      } else {
-        // Jika server merespon dengan error (spt 404, 500)
-        print('Server error on updateMenu: ${response.statusCode} - ${response.body}');
-        return false;
       }
-    } catch (e) {
-      // Jika ada error koneksi atau lainnya
-      print('Error connecting to server on updateMenu: $e');
       return false;
-    }
-  }
-
-  // --- Endpoint untuk Customer ---
-  Future<Map<String, dynamic>> registerUser(
-      String nama, String email, String password, String? noHp) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/customer/create.php'),
-      headers: {'Content-Type': 'application/json'},
-      body: json
-          .encode({'nama': nama, 'email': email, 'password': password, 'no_hp': noHp}),
-    );
-    return json.decode(response.body);
-  }
-
-  Future<List<Customer>> fetchAllCustomers() async {
-    final response = await http.get(Uri.parse('$baseUrl/customer/read.php'));
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
-      if (data.containsKey('records') && data['records'] is List) {
-        return (data['records'] as List)
-            .map((json) => Customer.fromJson(json))
-            .toList();
-      }
-    }
-    throw Exception('Failed to load customers');
-  }
-
-  // --- Endpoint untuk Auth ---
-     Future<Map<String, dynamic>> unifiedLogin(
-      String email, String password) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/login.php'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({'email': email, 'password': password}),
-    );
-    return json.decode(response.body);
-  }
-
-  // --- Endpoint untuk Staff ---
-  Future<List<Staff>> fetchAllStaff() async {
-    final response = await http.get(Uri.parse('$baseUrl/staff/read.php'));
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
-      if (data.containsKey('records') && data['records'] is List) {
-        return (data['records'] as List)
-            .map((json) => Staff.fromJson(json))
-            .toList();
-      }
-    }
-    throw Exception('Failed to load staff');
-  }
-
-  Future<bool> createStaff({
-    required String namaStaff,
-    required String email,
-    required String password,
-    required String role,
-    String? noHp,
-    required int idOwner,
-  }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/staff/create.php'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'nama_staff': namaStaff,
-        'email': email,
-        'password': password,
-        'role': role,
-        'no_hp': noHp,
-        'id_owner': idOwner,
-      }),
-    );
-    return response.statusCode == 201;
-  }
-
-  // --- Endpoint untuk Transaksi (Kasir/Admin) ---
-   Future<bool> createTransaction({
-    required int customerId,
-    required int staffId,
-    required String paymentMethod,
-    required double totalAmount,
-    required List<TransactionCartItem> items, // <<< Tipe ini didapat dari menu.dart
-    int? pointsUsed,
-  }) async {
-    // Ubah List<TransactionCartItem> menjadi format JSON yang bisa dikirim
-    List<Map<String, dynamic>> itemsJson = items.map((item) {
-      return {
-        'id_menu': item.menu.idMenu,
-        'quantity': item.quantity,
-        'subtotal': item.menu.harga * item.quantity,
-      };
-    }).toList();
-
-    Map<String, dynamic> requestBody = {
-      'id_customer': customerId,
-      'id_staff': staffId,
-      'payment_method': paymentMethod,
-      'total_amount': totalAmount,
-      'details': itemsJson,
-    };
-    
-    if (pointsUsed != null) {
-      requestBody['points_used'] = pointsUsed;
-    }
-
-    final response = await http.post(
-      Uri.parse('$baseUrl/transaction/create.php'),
-      headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      body: jsonEncode(requestBody),
-    );
-
-    if (response.statusCode == 201 || response.statusCode == 200) {
-      return true;
-    } else {
-      print('Failed to create transaction: ${response.body}');
+    } catch (e) {
+      print('Error connecting to server on updateMenu: $e');
       return false;
     }
   }
@@ -205,30 +73,209 @@ class ApiService {
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
-        // Kirim ID dalam format JSON di body
         body: json.encode({'id_menu': idMenu}),
       );
-
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
         return responseData['status'] == 'success';
-      } else {
-        print('Server error on deleteMenu: ${response.statusCode} - ${response.body}');
-        return false;
       }
+      return false;
     } catch (e) {
       print('Error connecting to server on deleteMenu: $e');
       return false;
     }
   }
 
-    Future<Customer?> fetchOneCustomer(int customerId) async {
-    // Ganti 'read_one.php' menjadi 'read_single.php' agar sesuai dengan file-mu
+  Future<Map<String, dynamic>> registerUser(String nama, String email, String password, String? noHp) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/customer/create.php'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'nama': nama, 'email': email, 'password': password, 'no_hp': noHp}),
+    );
+    return json.decode(response.body);
+  }
+
+  Future<List<Customer>> fetchAllCustomers() async {
+    final response = await http.get(Uri.parse('$baseUrl/customer/read.php'));
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      if (data.containsKey('records') && data['records'] is List) {
+        return (data['records'] as List).map((json) => Customer.fromJson(json)).toList();
+      }
+    }
+    throw Exception('Failed to load customers');
+  }
+
+  Future<Customer?> fetchOneCustomer(int customerId) async {
     final response = await http.get(Uri.parse('$baseUrl/customer/read_single.php?id=$customerId'));
-    print("---[ApiService] Raw response from read_single.php: ${response.body}");
     if (response.statusCode == 200) {
       return Customer.fromJson(json.decode(response.body));
     }
     return null;
+  }
+
+  Future<Map<String, dynamic>> unifiedLogin(String email, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/login.php'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'email': email, 'password': password}),
+    );
+    return json.decode(response.body);
+  }
+
+  Future<List<Staff>> fetchAllStaff() async {
+    final response = await http.get(Uri.parse('$baseUrl/staff/read.php'));
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      if (data.containsKey('records') && data['records'] is List) {
+        return (data['records'] as List).map((json) => Staff.fromJson(json)).toList();
+      }
+    }
+    throw Exception('Failed to load staff');
+  }
+
+  Future<bool> createStaff({ required String namaStaff, required String email, required String password, required String role, String? noHp, required int idOwner, }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/staff/create.php'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'nama_staff': namaStaff, 'email': email, 'password': password, 'role': role, 'no_hp': noHp, 'id_owner': idOwner,
+      }),
+    );
+    return response.statusCode == 201;
+  }
+
+  // <<< FUNGSI INI DIUBAH UNTUK MENGIRIM promo_name >>>
+  Future<bool> createTransaction({
+    required int customerId,
+    required int staffId,
+    required String paymentMethod,
+    required double totalAmount,
+    required List<TransactionCartItem> items,
+    int? pointsUsed,
+    String? promoName,
+  }) async {
+    try {
+      List<Map<String, dynamic>> itemsJson = items.map((item) {
+        return {
+          'id_menu': item.menu.idMenu, 'quantity': item.quantity, 'subtotal': item.menu.harga * item.quantity,
+        };
+      }).toList();
+
+      Map<String, dynamic> requestBody = {
+        'id_customer': customerId, 'id_staff': staffId, 'payment_method': paymentMethod, 'total_amount': totalAmount, 'details': itemsJson,
+      };
+      
+      if (pointsUsed != null) {
+        requestBody['points_used'] = pointsUsed;
+      }
+      if (promoName != null && promoName.isNotEmpty) {
+        requestBody['promo_name'] = promoName;
+      }
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/transaction/create.php'),
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode(requestBody),
+      );
+
+      return response.statusCode == 201 || response.statusCode == 200;
+
+    } catch (e) {
+      print('Error in createTransaction: $e');
+      return false;
+    }
+  }
+  
+  Future<List<WalletReport>> fetchWalletReports() async {
+    final response = await http.get(Uri.parse('$baseUrl/report/wallet.php'));
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> responseData = json.decode(response.body);
+      if (responseData['success'] == true && responseData['reports'] is List) {
+        List<dynamic> reportsJson = responseData['reports'];
+        return reportsJson.map((json) => WalletReport.fromJson(json)).toList();
+      } else {
+        throw Exception(responseData['message'] ?? 'Format data laporan tidak valid.');
+      }
+    } else {
+      throw Exception('Gagal memuat laporan wallet. Status Code: ${response.statusCode}');
+    }
+  }
+
+  Future<List<LoyaltyHistory>> fetchLoyaltyHistory(int customerId) async {
+    final response = await http.get(Uri.parse('$baseUrl/customer/loyalty_history.php?id_customer=$customerId'));
+    if (response.statusCode == 200) {
+      return loyaltyHistoryFromJson(response.body);
+    } else if (response.statusCode == 404) {
+      return [];
+    } else {
+      throw Exception('Gagal memuat riwayat poin');
+    }
+  }
+
+  Future<List<Promotion>> fetchAllPromotions() async {
+    final response = await http.get(Uri.parse('$baseUrl/promotion/read.php'));
+    if (response.statusCode == 200) {
+      return promotionFromJson(response.body);
+    } else if (response.statusCode == 404) {
+      return [];
+    } else {
+      throw Exception('Failed to load promotions');
+    }
+  }
+
+  Future<List<Promotion>> fetchActivePromotions() async {
+    final response = await http.get(Uri.parse('$baseUrl/promotion/read_active.php'));
+    if (response.statusCode == 200) {
+      return promotionFromJson(response.body);
+    } else if (response.statusCode == 404) {
+      return [];
+    } else {
+      throw Exception('Failed to load active promotions');
+    }
+  }
+
+  Future<bool> createPromotion({ required String name, required String description, required String discountType, required double discountValue, }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/promotion/create.php'),
+      headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      body: jsonEncode(<String, dynamic>{
+        'promo_name': name, 'description': description, 'discount_type': discountType, 'discount_value': discountValue,
+      }),
+    );
+    return response.statusCode == 201;
+  }
+  
+  Future<bool> updatePromotionStatus({required int id, required bool isActive}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/promotion/update_status.php'),
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode(<String, dynamic>{
+          'id_promotion': id,
+          'is_active': isActive,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error in updatePromotionStatus: $e');
+      return false;
+    }
+  }
+  
+  // <<< FUNGSI INI DIUBAH UNTUK MENGIRIM promo_name >>>
+  Future<Map<String, dynamic>> validatePromoCode({
+    required String promoName,
+    required double totalPrice,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/promotion/validate.php'),
+      headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      body: jsonEncode(<String, dynamic>{
+        'promo_name': promoName,
+        'total_price': totalPrice,
+      }),
+    );
+    return json.decode(response.body);
   }
 }

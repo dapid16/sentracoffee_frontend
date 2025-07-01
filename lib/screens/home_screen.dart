@@ -1,10 +1,11 @@
-// lib/screens/home_screen.dart (VERSI FINAL)
+// lib/screens/home_screen.dart
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
+import 'package:sentra_coffee_frontend/models/promotion.dart';
 import 'package:sentra_coffee_frontend/services/auth_service.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'package:sentra_coffee_frontend/screens/product_detail_screen.dart';
 import 'package:sentra_coffee_frontend/utils/constants.dart';
 import 'package:sentra_coffee_frontend/utils/text_styles.dart';
 import 'package:sentra_coffee_frontend/screens/loyalty_point_screen.dart';
@@ -12,9 +13,10 @@ import 'package:sentra_coffee_frontend/screens/cart_screen.dart';
 import 'package:sentra_coffee_frontend/services/api_service.dart';
 import 'package:sentra_coffee_frontend/models/menu.dart';
 import 'package:sentra_coffee_frontend/screens/order_history_screen.dart';
+import 'package:sentra_coffee_frontend/screens/product_detail_screen.dart';
+import 'package:sentra_coffee_frontend/services/order_service.dart';
 
 class HomeScreen extends StatefulWidget {
-  // --- Constructor sekarang simpel, tidak butuh parameter ---
   const HomeScreen({Key? key}) : super(key: key);
 
   @override
@@ -25,7 +27,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   late PageController _pageController;
   Timer? _timer;
-  late Future<List<Menu>> _futureMenuItems;
+
+  // --- State Future diubah untuk memuat Promo dan Menu secara terpisah ---
+  late Future<List<Promotion>> _promoFuture;
+  late Future<List<Menu>> _menuFuture;
+  final ApiService apiService = ApiService();
 
   @override
   void initState() {
@@ -34,13 +40,15 @@ class _HomeScreenState extends State<HomeScreen> {
       viewportFraction: 0.85,
       initialPage: 0,
     );
-    _futureMenuItems = ApiService().fetchAllMenu();
+    // Panggil kedua API saat halaman dimuat
+    _promoFuture = apiService.fetchActivePromotions();
+    _menuFuture = apiService.fetchAllMenu();
   }
 
-  void _startPromoAutoScroll(List<Menu> promoItems) {
+  void _startPromoAutoScroll(List<Promotion> promoItems) {
     if (promoItems.isEmpty) return;
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_pageController.hasClients) {
         int nextPage = (_pageController.page!.toInt() + 1) % promoItems.length;
         _pageController.animateToPage(
@@ -72,8 +80,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final List<Widget> widgetOptions = [
       _buildHomeContent(),
-      const LoyaltyPointScreen(), // Panggil tanpa parameter
-      const OrderHistoryScreen(), // Panggil tanpa parameter
+      const LoyaltyPointScreen(),
+      const OrderHistoryScreen(),
     ];
 
     return Scaffold(
@@ -107,11 +115,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   MaterialPageRoute(builder: (context) => const CartScreen()));
             },
           ),
-          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.logout_outlined,
                 color: AppColors.textColor, size: 28),
             onPressed: () {
+              Provider.of<OrderService>(context, listen: false).clearOrders();
               Provider.of<AuthService>(context, listen: false).logout();
             },
           ),
@@ -166,83 +174,92 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHomeContent() {
-    return FutureBuilder<List<Menu>>(
-      future: _futureMenuItems,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('Tidak ada menu tersedia.'));
-        } else {
-          final List<Menu> menuItems = snapshot.data!;
-          final List<Menu> promoItems = menuItems.take(3).toList();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _startPromoAutoScroll(promoItems);
-          });
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Text('Our Promo',
-                      style:
-                          AppTextStyles.h3.copyWith(color: AppColors.textColor)),
-                ),
-                const SizedBox(height: 16),
-                promoItems.isNotEmpty
-                    ? Column(
-                        children: [
-                          SizedBox(
-                            height: 220,
-                            child: PageView.builder(
-                              controller: _pageController,
-                              itemCount: promoItems.length,
-                              itemBuilder: (context, index) {
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8.0),
-                                  child: _buildMenuItemCard(promoItems[index],
-                                      isPromo: true),
-                                );
-                              },
-                            ),
-                          ),
-                          if (promoItems.length > 1)
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 16.0),
-                              child: SmoothPageIndicator(
-                                controller: _pageController,
-                                count: promoItems.length,
-                                effect: WormEffect(
-                                  dotHeight: 8.0,
-                                  dotWidth: 8.0,
-                                  activeDotColor: AppColors.primaryColor,
-                                  dotColor:
-                                      AppColors.greyText.withOpacity(0.5),
-                                ),
-                              ),
-                            ),
-                        ],
-                      )
-                    : Center(
-                        child: Text('No promo available',
-                            style: AppTextStyles.bodyText1
-                                .copyWith(color: AppColors.greyText)),
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Text('Our Promo',
+                style: AppTextStyles.h3.copyWith(color: AppColors.textColor)),
+          ),
+          const SizedBox(height: 16),
+          // --- Bagian Promo (diambil dari API) ---
+          FutureBuilder<List<Promotion>>(
+            future: _promoFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox(
+                    height: 180,
+                    child: Center(child: CircularProgressIndicator()));
+              }
+              if (snapshot.hasError) {
+                return Center(
+                    child: Text("Gagal memuat promo: ${snapshot.error}"));
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const SizedBox(
+                    height: 180,
+                    child: Center(child: Text("Tidak ada promo aktif.")));
+              }
+
+              final promos = snapshot.data!;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _startPromoAutoScroll(promos);
+              });
+
+              return Column(
+                children: [
+                  SizedBox(
+                    height: 180,
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: promos.length,
+                      itemBuilder: (context, index) {
+                        return _buildPromoCard(promos[index]);
+                      },
+                    ),
+                  ),
+                  if (promos.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: SmoothPageIndicator(
+                        controller: _pageController,
+                        count: promos.length,
+                        effect: WormEffect(
+                          dotHeight: 8.0,
+                          dotWidth: 8.0,
+                          activeDotColor: AppColors.primaryColor,
+                          dotColor: AppColors.greyText.withOpacity(0.5),
+                        ),
                       ),
-                const SizedBox(height: 32),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Text('Our Menu',
-                      style:
-                          AppTextStyles.h3.copyWith(color: AppColors.textColor)),
-                ),
-                const SizedBox(height: 16),
-                GridView.builder(
+                    ),
+                ],
+              );
+            },
+          ),
+
+          const SizedBox(height: 32),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Text('Our Menu',
+                style: AppTextStyles.h3.copyWith(color: AppColors.textColor)),
+          ),
+          const SizedBox(height: 16),
+          // --- Bagian Menu (tetap sama) ---
+          FutureBuilder<List<Menu>>(
+            future: _menuFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('Tidak ada menu tersedia.'));
+              } else {
+                final menuItems = snapshot.data!;
+                return GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -256,20 +273,73 @@ class _HomeScreenState extends State<HomeScreen> {
                   itemBuilder: (context, index) {
                     return _buildMenuItemCard(menuItems[index]);
                   },
-                ),
-                const SizedBox(height: 100),
-              ],
-            ),
-          );
-        }
-      },
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 100),
+        ],
+      ),
     );
   }
 
-  Widget _buildMenuItemCard(Menu item, {bool isPromo = false}) {
-    final double hargaAsli = item.harga;
-    final double hargaPromo = hargaAsli * 0.9; // Diskon 10% sementara
+  // Widget baru untuk menampilkan Promo Card
+  Widget _buildPromoCard(Promotion promo) {
+    String discountText = '';
+    if (promo.discountType == 'persen') {
+      // Menghilangkan .0 jika tidak ada desimal
+      final value = double.parse(promo.discountValue);
+      discountText = "${value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2)}% OFF";
+    } else {
+      final value = double.parse(promo.discountValue);
+      discountText = "Potongan ${formatRupiah(value)}";
+    }
 
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      color: Colors.brown[400],
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              promo.promoName,
+              style: AppTextStyles.h3.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Text(
+                promo.description,
+                style: AppTextStyles.bodyText1.copyWith(color: Colors.white.withOpacity(0.9)),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                discountText,
+                style: AppTextStyles.bodyText1.copyWith(color: Colors.brown, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // Widget lama untuk menampilkan Menu Card
+  Widget _buildMenuItemCard(Menu item) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -280,7 +350,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
       child: Card(
-        elevation: isPromo ? 8 : 4,
+        elevation: 4,
         color: AppColors.backgroundColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -293,9 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              height: 90.0,
-              width: double.infinity,
+            Expanded(
               child: Image.asset(
                 'assets/images/${item.namaMenu.toLowerCase().replaceAll(' ', '')}.png',
                 fit: BoxFit.cover,
@@ -310,57 +378,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
             ),
-            Expanded(
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      item.namaMenu,
-                      style: AppTextStyles.bodyText1.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: isPromo
-                            ? AppColors.backgroundColor
-                            : AppColors.textColor,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.namaMenu,
+                    style: AppTextStyles.bodyText1.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textColor,
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          formatRupiah(hargaAsli),
-                          style: AppTextStyles.bodyText2.copyWith(
-                            color: AppColors.greyText,
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          formatRupiah(hargaPromo), // Solusi Sementara
-                          style: AppTextStyles.bodyText1.copyWith(
-                            color: Colors.green, // Solusi Sementara
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formatRupiah(item.harga),
+                    style: AppTextStyles.bodyText1.copyWith(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 8),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  String formatRupiah(double amount) {
-    return 'Rp${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
   }
 }
