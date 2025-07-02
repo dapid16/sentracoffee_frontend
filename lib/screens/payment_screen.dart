@@ -25,8 +25,7 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  // <<< PERUBAHAN DI SINI >>>
-  final int redeemCost = 25000; // Biaya redeem poin yang tetap
+  final int redeemCost = 25000;
 
   final _promoController = TextEditingController();
   String? _appliedPromoName;
@@ -58,8 +57,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _isRedeemingPoints = false;
       });
     }
-    
-    setState(() { _isApplyingPromo = true; });
+
+    setState(() {
+      _isApplyingPromo = true;
+    });
 
     final apiService = ApiService();
     final response = await apiService.validatePromoCode(
@@ -82,7 +83,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _appliedPromoName = null;
       });
     }
-    setState(() { _isApplyingPromo = false; });
+    setState(() {
+      _isApplyingPromo = false;
+    });
   }
 
   void _processPayment() async {
@@ -91,12 +94,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final apiService = ApiService();
 
     if (authService.loggedInCustomer == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Anda harus login.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Anda harus login.')));
       return;
     }
 
-    // <<< PERUBAHAN DI SINI >>>
-    // Cek kecukupan poin berdasarkan biaya redeem tetap
     if (_isRedeemingPoints && authService.loggedInCustomer!.points < redeemCost) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Poin tidak cukup untuk redeem.'),
@@ -132,8 +134,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
         paymentMethod: _selectedPaymentMethod,
         totalAmount: _finalTotal,
         items: transactionItems,
-        // <<< PERUBAHAN DI SINI >>>
-        // Kirim biaya redeem tetap jika mode redeem aktif
         pointsUsed: _isRedeemingPoints ? redeemCost : null,
         promoName: _isRedeemingPoints ? null : _appliedPromoName,
       );
@@ -143,11 +143,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (success) {
         await authService.refreshLoggedInCustomerData();
         cartService.clearCart();
+        
+        // Perubahan utama ada di baris navigasi ini
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const PaymentSuccessScreen()),
-          (route) => false,
+          (route) => route.isFirst, // Ini memastikan AuthWrapper tidak dihapus
         );
+
       } else {
         throw Exception('Gagal memproses transaksi di server.');
       }
@@ -165,8 +168,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final authService = Provider.of<AuthService>(context);
     final customerPoints = authService.loggedInCustomer?.points ?? 0;
     
-    // <<< PERUBAHAN DI SINI >>>
-    // Cek apakah bisa redeem berdasarkan biaya tetap
     bool canRedeem = customerPoints >= redeemCost;
 
     return Scaffold(
@@ -190,7 +191,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                Card( // ... Card Info Customer (tidak ada perubahan)
+                Card(
                   margin: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15)),
@@ -245,12 +246,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         _buildSummaryRow('Subtotal', widget.totalPrice),
                         if (_discountAmount > 0)
                           _buildSummaryRow(
-                              'Diskon (${_appliedPromoName})', -_discountAmount,
+                              'Diskon (${_appliedPromoName ?? ''})', -_discountAmount,
                               valueColor: Colors.green),
-                        // <<< PERUBAHAN DI SINI >>>
                         if (_isRedeemingPoints)
                           _buildSummaryRow(
-                              'Redeem Poin', -redeemCost.toDouble(), // Tampilkan biaya redeem tetap
+                              'Redeem Poin', -redeemCost.toDouble(),
                               valueColor: Colors.green, usePoints: true),
                         const Divider(height: 20, thickness: 1),
                         _buildSummaryRow('Total Bayar', _finalTotal,
@@ -345,7 +345,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15)),
                   title: const Text('Gunakan Poin'),
-                  // <<< PERUBAHAN DI SINI >>>
                   subtitle: Text('Butuh $redeemCost Poin. ' +
                       (canRedeem ? 'Poin Anda cukup.' : 'Poin tidak cukup.')),
                   value: _isRedeemingPoints,
@@ -370,7 +369,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           ),
           Positioned(
-            bottom: 0, left: 0, right: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -417,7 +418,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     String amountText = usePoints
         ? '${formatNumberWithThousandsSeparator(displayAmount.toDouble())} Pts'
         : formatRupiah(amount);
-
+    
     return Padding(
       padding: EdgeInsets.symmetric(vertical: isTotal ? 8.0 : 4.0),
       child: Row(

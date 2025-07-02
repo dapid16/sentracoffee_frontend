@@ -1,14 +1,14 @@
 // lib/models/cart.dart
 
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart'; // Pastikan lo punya package uuid di pubspec.yaml
+import 'package:uuid/uuid.dart';
 
 class CartItem {
-  final String id; // Unique ID for each cart item
-   final int idMenu;
+  final String id;
+  final int idMenu;
   final String name;
   final String image;
-  final double pricePerItem; // UBAH KE DOUBLE untuk fleksibilitas harga
+  final double pricePerItem;
   int quantity;
   final String customizations;
 
@@ -22,7 +22,6 @@ class CartItem {
     required this.customizations,
   });
 
-  // Method untuk update quantity LANGSUNG DI CARTITEM
   void increaseQuantity() {
     quantity++;
   }
@@ -36,35 +35,47 @@ class CartItem {
 
 class CartService extends ChangeNotifier {
   final List<CartItem> _items = [];
-  final Uuid _uuid = const Uuid(); // Perbaikan: Uuid() harusnya const atau tidak
+  final Uuid _uuid = const Uuid();
 
   List<CartItem> get items => List.unmodifiable(_items);
 
+  // <<< PERUBAHAN UTAMA ADA DI SINI >>>
   double get totalPrice {
-    return _items.fold(0.0, (sum, item) => sum + (item.pricePerItem * item.quantity));
+    return _items.fold(0.0, (sum, item) {
+      // Ambil harga dasar
+      double price = item.pricePerItem;
+      String customizations = item.customizations.toLowerCase();
+
+      // Terapkan pengali harga berdasarkan ukuran dari string kustomisasi
+      if (customizations.contains('small')) {
+        price *= 0.8;
+      } else if (customizations.contains('large')) {
+        price *= 1.2;
+      }
+      
+      // Kembalikan total yang sudah disesuaikan
+      return sum + (price * item.quantity);
+    });
   }
 
   void addItem({
     required String name,
     required String image,
-    required double pricePerItem, // UBAH KE DOUBLE
+    required double pricePerItem,
     required int quantity,
     required String customizations,
     required int idMenu,
   }) {
-    // Cek apakah item dengan kustomisasi yang sama sudah ada di keranjang
     final existingItemIndex = _items.indexWhere(
       (item) => item.name == name && item.customizations == customizations,
     );
 
     if (existingItemIndex != -1) {
-      // Jika ada, tambahkan quantity
       _items[existingItemIndex].quantity += quantity;
     } else {
-      // Jika tidak ada, tambahkan item baru
       _items.add(CartItem(
-        id: _uuid.v4(), // Generate unique ID
-        idMenu: idMenu, // <-- ISI ID MENU DI SINI
+        id: _uuid.v4(),
+        idMenu: idMenu,
         name: name,
         image: image,
         pricePerItem: pricePerItem,
@@ -72,7 +83,7 @@ class CartService extends ChangeNotifier {
         customizations: customizations,
       ));
     }
-    notifyListeners(); // Beri tahu UI bahwa data berubah
+    notifyListeners();
   }
 
   void removeItem(String id) {
@@ -83,7 +94,7 @@ class CartService extends ChangeNotifier {
   void increaseQuantity(String id) {
     final itemIndex = _items.indexWhere((item) => item.id == id);
     if (itemIndex != -1) {
-      _items[itemIndex].increaseQuantity(); // Memanggil method di CartItem
+      _items[itemIndex].increaseQuantity();
       notifyListeners();
     }
   }
@@ -92,9 +103,8 @@ class CartService extends ChangeNotifier {
     final itemIndex = _items.indexWhere((item) => item.id == id);
     if (itemIndex != -1) {
       if (_items[itemIndex].quantity > 1) {
-        _items[itemIndex].decreaseQuantity(); // Memanggil method di CartItem
+        _items[itemIndex].decreaseQuantity();
       } else {
-        // Hapus item jika quantitynya jadi 0 atau kurang
         _items.removeAt(itemIndex);
       }
       notifyListeners();

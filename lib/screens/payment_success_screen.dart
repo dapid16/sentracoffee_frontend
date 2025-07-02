@@ -1,22 +1,19 @@
-// lib/screens/payment_success_screen.dart (VERSI FINAL)
+// lib/screens/payment_success_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // <<< IMPORT PROVIDER
-import 'package:sentra_coffee_frontend/services/auth_service.dart'; // <<< IMPORT AUTHSERVICE
+import 'package:provider/provider.dart';
+import 'package:sentra_coffee_frontend/services/auth_service.dart';
 import 'package:sentra_coffee_frontend/utils/constants.dart';
 import 'package:sentra_coffee_frontend/utils/text_styles.dart';
-import 'package:sentra_coffee_frontend/screens/home_screen.dart';
+import 'package:sentra_coffee_frontend/main.dart';
 
 class PaymentSuccessScreen extends StatelessWidget {
   const PaymentSuccessScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    // --- PERBAIKAN #1: Ambil data user dari AuthService ---
     final authService = Provider.of<AuthService>(context, listen: false);
     final String userName = authService.loggedInCustomer?.nama ?? 'User';
-
-    // Data dummy untuk waktu dan alamat (bisa diganti dengan parameter nanti)
     final String dummyOrderTime = '18:10';
     final String dummyDeliveryAddress = 'Seturan';
 
@@ -26,11 +23,10 @@ class PaymentSuccessScreen extends StatelessWidget {
         backgroundColor: AppColors.lightGreyBackground,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.darkGrey),
+          icon: const Icon(Icons.close, color: AppColors.darkGrey),
           onPressed: () {
-            // --- PERBAIKAN #2: Navigasi ke HomeScreen tanpa parameter ---
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const HomeScreen()),
+              MaterialPageRoute(builder: (context) => const AuthWrapper()),
               (Route<dynamic> route) => false,
             );
           },
@@ -44,7 +40,7 @@ class PaymentSuccessScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
+                  SizedBox(
                     width: 150,
                     height: 150,
                     child: Image.asset(
@@ -71,7 +67,6 @@ class PaymentSuccessScreen extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 30.0),
                     child: Text(
-                      // --- PERBAIKAN #3: Gunakan userName dinamis ---
                       '$userName, your order has been successfully placed.',
                       textAlign: TextAlign.center,
                       style: AppTextStyles.bodyText1
@@ -107,10 +102,9 @@ class PaymentSuccessScreen extends StatelessWidget {
               height: 55,
               child: ElevatedButton(
                 onPressed: () {
-                  // --- PERBAIKAN #4: Navigasi ke HomeScreen tanpa parameter ---
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(
-                        builder: (context) => const HomeScreen()),
+                        builder: (context) => const AuthWrapper()),
                     (Route<dynamic> route) => false,
                   );
                 },

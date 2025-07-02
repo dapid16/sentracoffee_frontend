@@ -4,13 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sentra_coffee_frontend/screens/cart_screen.dart';
 import 'package:sentra_coffee_frontend/models/cart.dart';
-import 'package:sentra_coffee_frontend/screens/payment_screen.dart';
-import 'package:sentra_coffee_frontend/utils/constants.dart'; // Untuk formatRupiah, dll.
-import 'package:sentra_coffee_frontend/utils/text_styles.dart'; // Untuk AppTextStyles
-import 'package:sentra_coffee_frontend/models/menu.dart'; // Import model Menu
+import 'package:sentra_coffee_frontend/utils/constants.dart';
+import 'package:sentra_coffee_frontend/utils/text_styles.dart';
 
 class ProductDetailScreen extends StatefulWidget {
-  // Menerima Map<String, dynamic> karena dikirim dari Menu.toJson()
   final Map<String, dynamic> product;
   const ProductDetailScreen({Key? key, required this.product}) : super(key: key);
 
@@ -22,7 +19,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _quantity = 1;
   String _selectedRistretto = 'One';
   String _selectedOrderType = 'Onsite';
-  String _selectedVolume = 'Medium';
+  String _selectedVolume = 'Medium'; // Default size
   bool _prepareByTime = false;
   TimeOfDay _selectedTime = TimeOfDay.now();
   double _totalAmount = 0.0;
@@ -34,11 +31,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   void _calculateTotalAmount() {
-    // UBAH: Ambil 'harga' dari widget.product, dan pastikan itu double
-    // Gunakan 'as num?' lalu .toDouble() untuk null-safety, dan ?? 0.0 sebagai default jika null
-    double basePrice = (widget.product['harga'] as num?)?.toDouble() ?? 0.0; // <-- PERBAIKAN DI SINI!
-    _totalAmount = basePrice * _quantity;
-    setState(() {});
+    double basePrice = (widget.product['harga'] as num?)?.toDouble() ?? 0.0;
+    
+    // Logika untuk pengali harga berdasarkan ukuran
+    double sizeMultiplier = 1.0; // Default untuk Medium
+    if (_selectedVolume == 'Small') {
+      sizeMultiplier = 0.8; // Diskon 20% untuk ukuran Small
+    } else if (_selectedVolume == 'Large') {
+      sizeMultiplier = 1.2; // Tambahan 20% untuk ukuran Large
+    }
+
+    setState(() {
+      // Harga dihitung dengan mengalikan harga dasar, pengali ukuran, dan kuantitas
+      _totalAmount = (basePrice * sizeMultiplier) * _quantity;
+    });
   }
 
   @override
@@ -70,226 +76,156 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             icon: const Icon(Icons.shopping_cart_outlined, color: Colors.black, size: 28),
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen()));
-              print('Cart icon tapped!');
             },
           ),
           const SizedBox(width: 16),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    // Asumsi path gambar
-                    'assets/images/${(widget.product['nama_menu'] as String).toLowerCase().replaceAll(' ', '')}.png',
-                    height: 180,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 180,
-                        width: MediaQuery.of(context).size.width * 0.7,
-                        decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                        ),
-                        child: Center(
-                          child: Icon(Icons.broken_image, size: 80, color: Colors.grey[400]),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      widget.product['nama_menu'], // Gunakan nama_menu
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                  const SizedBox(height: 20),
+                  Center(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/images/${(widget.product['nama_menu'] as String).toLowerCase().replaceAll(' ', '')}.png',
+                        height: 180,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            height: 180,
+                            width: MediaQuery.of(context).size.width * 0.7,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                            ),
+                            child: Center(
+                              child: Icon(Icons.broken_image, size: 80, color: Colors.grey[400]),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
-                  _buildQuantitySelector(),
-                ],
-              ),
-              const SizedBox(height: 32),
-              _buildOptionSection(
-                title: 'Ristretto',
-                options: ['One', 'Two'],
-                selectedValue: _selectedRistretto,
-                onSelected: (value) {
-                  setState(() {
-                    _selectedRistretto = value;
-                    _calculateTotalAmount();
-                  });
-                },
-              ),
-              const SizedBox(height: 24),
-              _buildIconOptionSection(
-                title: 'Onsite / Takeaway',
-                options: [
-                  {'value': 'Onsite', 'icon': Icons.storefront_outlined},
-                  {'value': 'Takeaway', 'icon': Icons.takeout_dining_outlined},
-                ],
-                selectedValue: _selectedOrderType,
-                onSelected: (value) {
-                  setState(() {
-                    _selectedOrderType = value;
-                    _calculateTotalAmount();
-                  });
-                },
-              ),
-              const SizedBox(height: 24),
-              _buildIconOptionSection(
-                title: 'Volume',
-                options: [
-                  {'value': 'Small', 'icon': Icons.local_cafe_outlined},
-                  {'value': 'Medium', 'icon': Icons.coffee_outlined},
-                  {'value': 'Large', 'icon': Icons.emoji_food_beverage_outlined},
-                ],
-                selectedValue: _selectedVolume,
-                onSelected: (value) {
-                  setState(() {
-                    _selectedVolume = value;
-                    _calculateTotalAmount();
-                  });
-                },
-              ),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Prepare by a certain time today?',
-                    style: TextStyle(fontSize: 16, color: Colors.black),
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.product['nama_menu'],
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                      _buildQuantitySelector(),
+                    ],
                   ),
-                  Switch(
-                    value: _prepareByTime,
-                    onChanged: (bool value) {
+                  const SizedBox(height: 32),
+                  _buildOptionSection(
+                    title: 'Ristretto',
+                    options: ['One', 'Two'],
+                    selectedValue: _selectedRistretto,
+                    onSelected: (value) {
                       setState(() {
-                        _prepareByTime = value;
+                        _selectedRistretto = value;
+                        _calculateTotalAmount();
                       });
                     },
-                    activeColor: Colors.brown,
                   ),
-                ],
-              ),
-              if (_prepareByTime)
-                GestureDetector(
-                  onTap: () async {
-                    TimeOfDay? pickedTime = await showTimePicker(
-                      context: context,
-                      initialTime: _selectedTime,
-                      builder: (context, child) {
-                        return Theme(
-                          data: Theme.of(context).copyWith(
-                            colorScheme: const ColorScheme.light(
-                              primary: Colors.brown,
-                              onPrimary: Colors.white,
-                              onSurface: Colors.black,
-                            ),
-                            textButtonTheme: TextButtonThemeData(
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.brown,
-                              ),
-                            ),
-                          ),
-                          child: child!,
-                        );
-                      },
-                    );
-                    if (pickedTime != null) {
+                  const SizedBox(height: 24),
+                  _buildIconOptionSection(
+                    title: 'Onsite / Takeaway',
+                    options: [
+                      {'value': 'Onsite', 'icon': Icons.storefront_outlined},
+                      {'value': 'Takeaway', 'icon': Icons.takeout_dining_outlined},
+                    ],
+                    selectedValue: _selectedOrderType,
+                    onSelected: (value) {
                       setState(() {
-                        _selectedTime = pickedTime;
+                        _selectedOrderType = value;
+                        _calculateTotalAmount();
                       });
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _selectedTime.format(context),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
+                    },
                   ),
-                ),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Total Amount',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
+                  const SizedBox(height: 24),
+                  _buildIconOptionSection(
+                    title: 'Volume',
+                    options: [
+                      {'value': 'Small', 'icon': Icons.local_cafe_outlined},
+                      {'value': 'Medium', 'icon': Icons.coffee_outlined},
+                      {'value': 'Large', 'icon': Icons.emoji_food_beverage_outlined},
+                    ],
+                    selectedValue: _selectedVolume,
+                    onSelected: (value) {
+                      setState(() {
+                        _selectedVolume = value;
+                        _calculateTotalAmount();
+                      });
+                    },
                   ),
-                  Text(
-                    formatRupiah(_totalAmount),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
+                  const SizedBox(height: 32),
                 ],
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // Ambil harga yang benar dari widget.product (yaitu 'harga')
-                    double pricePerItem = (widget.product['harga'] as num?)?.toDouble() ?? 0.0; // <-- PERBAIKAN DI SINI JUGA!
-                    int idMenu = (widget.product['id_menu'] as int?) ?? 0; // <-- Ambil id_menu
-                    
-                    cartService.addItem(
-                      idMenu: idMenu, // <-- KIRIM idMenu DI SINI!
-                      name: widget.product['nama_menu'] as String, // Gunakan nama_menu
-                      image: 'assets/images/${(widget.product['nama_menu'] as String).toLowerCase().replaceAll(' ', '')}.png', // Asumsi path gambar
-                      pricePerItem: pricePerItem,
-                      quantity: _quantity,
-                      customizations:
-                          '${_selectedRistretto} | ${_selectedOrderType} | ${_selectedVolume}',
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${widget.product['nama_menu']} ditambahkan ke keranjang')),
-                    );
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen()));
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0,-5))]
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Total Amount', style: TextStyle(color: Colors.grey)),
+                    Text(formatRupiah(_totalAmount), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      double pricePerItem = (widget.product['harga'] as num?)?.toDouble() ?? 0.0;
+                      int idMenu = (widget.product['id_menu'] as int?) ?? 0;
+                      
+                      cartService.addItem(
+                        idMenu: idMenu,
+                        name: widget.product['nama_menu'] as String,
+                        image: 'assets/images/${(widget.product['nama_menu'] as String).toLowerCase().replaceAll(' ', '')}.png',
+                        pricePerItem: pricePerItem,
+                        quantity: _quantity,
+                        customizations: '$_selectedRistretto | $_selectedOrderType | $_selectedVolume',
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${widget.product['nama_menu']} ditambahkan ke keranjang')),
+                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const CartScreen()));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 40)
                     ),
-                  ),
-                  child: const Text(
-                    'Next',
-                    style: TextStyle(fontSize: 18, color: Colors.white),
+                    child: const Text('Add to Cart', style: TextStyle(fontSize: 16, color: Colors.white)),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
+              ],
+            ),
+          )
+        ],
       ),
     );
   }

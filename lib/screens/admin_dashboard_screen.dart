@@ -2,12 +2,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sentra_coffee_frontend/models/wallet_report.dart';
 import 'package:sentra_coffee_frontend/services/admin_auth_service.dart';
 import 'package:sentra_coffee_frontend/screens/manage_product_screen.dart';
 import 'package:sentra_coffee_frontend/screens/employee_list_screen.dart';
 import 'package:sentra_coffee_frontend/screens/new_transaction_screen.dart';
 import 'package:sentra_coffee_frontend/screens/admin_wallet_screen.dart';
-import 'package:sentra_coffee_frontend/screens/admin_manage_promotions_screen.dart'; // <<< IMPORT BARU
+import 'package:sentra_coffee_frontend/screens/admin_manage_promotions_screen.dart';
+import 'package:sentra_coffee_frontend/screens/admin_order_history_screen.dart';
+import 'package:sentra_coffee_frontend/services/admin_order_service.dart';
+import 'package:sentra_coffee_frontend/services/api_service.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({Key? key}) : super(key: key);
@@ -18,6 +22,11 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
+
+  final List<Widget> _pages = [
+    const _DashboardHomePage(),
+    const AdminOrderHistoryScreen(),
+  ];
 
   void _onItemTapped(int index) {
     setState(() {
@@ -30,11 +39,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final adminAuthService =
         Provider.of<AdminAuthService>(context, listen: false);
     final ownerName = adminAuthService.currentOwner?.namaOwner ?? 'Admin';
-
-    final List<Widget> _pages = [
-      _buildDashboardContent(context),
-      const Center(child: Text('Halaman Orders Admin')), // Placeholder
-    ];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -68,6 +72,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 color: Colors.black, size: 28),
             onPressed: () {
               Provider.of<AdminAuthService>(context, listen: false).logout();
+              Provider.of<AdminOrderService>(context, listen: false).fetchOrders();
             },
           ),
           const SizedBox(width: 8),
@@ -81,10 +86,92 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildDashboardContent(BuildContext context) {
+  Widget _buildBottomSection(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      color: Colors.white,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const NewTransactionScreen()),
+                );
+                if (mounted) {
+                  Provider.of<AdminOrderService>(context, listen: false)
+                      .fetchOrders();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Transaction',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: BottomNavigationBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              currentIndex: _selectedIndex,
+              onTap: _onItemTapped,
+              selectedItemColor: Colors.black,
+              unselectedItemColor: Colors.grey[600],
+              showSelectedLabels: false,
+              showUnselectedLabels: false,
+              items: const [
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.storefront_outlined), label: 'Home'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.receipt_long_outlined), label: 'Orders'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// <<< PERUBAHAN UTAMA DIMULAI DARI SINI >>>
+// Widget diubah menjadi StatefulWidget untuk memuat data laporan
+class _DashboardHomePage extends StatefulWidget {
+  const _DashboardHomePage({Key? key}) : super(key: key);
+
+  @override
+  State<_DashboardHomePage> createState() => _DashboardHomePageState();
+}
+
+class _DashboardHomePageState extends State<_DashboardHomePage> {
+  late Future<List<WalletReport>> _reportsFuture;
+  final ApiService _apiService = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Panggil API saat halaman pertama kali dimuat
+    _reportsFuture = _apiService.fetchWalletReports();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -96,14 +183,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               crossAxisSpacing: 8,
               mainAxisSpacing: 16,
               children: [
-                _buildAdminActionItem(
-                    context, Icons.inventory_2_outlined, 'Manage\nProduct',
+                _buildAdminActionItem(context, Icons.inventory_2_outlined,
+                    'Manage\nProduct',
                     onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
                             builder: (context) => const ManageProductScreen()))),
-                _buildAdminActionItem(
-                    context, Icons.people_alt_outlined, 'List of\nEmployees',
+                _buildAdminActionItem(context, Icons.people_alt_outlined,
+                    'List of\nEmployees',
                     onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -114,8 +201,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         context,
                         MaterialPageRoute(
                             builder: (context) => const WalletScreen()))),
-                
-                // <<< INI TOMBOL BARU UNTUK PROMO >>>
                 _buildAdminActionItem(
                     context, Icons.campaign_outlined, 'Manage\nPromo',
                     onTap: () => Navigator.push(
@@ -123,30 +208,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         MaterialPageRoute(
                             builder: (context) =>
                                 const AdminManagePromotionsScreen()))),
-                
                 _buildAdminActionItem(context, Icons.help_outline, 'Help',
                     onTap: () => print("Help tapped")),
               ],
             ),
             const SizedBox(height: 40),
-            const Text(
-              'Laporan',
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black),
-            ),
+            const Text('Laporan',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                    child: _buildReportCard('Penjualan Mei 2024',
-                        'Rp100.000.000', '0,00% vs bulan lalu')),
-                const SizedBox(width: 16),
-                Expanded(
-                    child: _buildReportCard('Penjualan April 2024',
-                        'Rp100.000.000', '0,00% vs bulan lalu')),
-              ],
+            
+            // Gunakan FutureBuilder untuk menampilkan data laporan secara dinamis
+            FutureBuilder<List<WalletReport>>(
+              future: _reportsFuture,
+              builder: (context, snapshot) {
+                // Saat data sedang dimuat
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                // Jika terjadi error
+                if (snapshot.hasError) {
+                  return Center(child: Text("Gagal memuat laporan: ${snapshot.error}"));
+                }
+                // Jika data tidak ada atau kosong
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text("Belum ada laporan penjualan."));
+                }
+                
+                // Ambil 2 laporan terbaru
+                final latestReports = snapshot.data!.take(2).toList();
+                
+                return Row(
+                  children: List.generate(latestReports.length, (index) {
+                    final report = latestReports[index];
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(right: index == 0 ? 8.0 : 0, left: index == 1 ? 8.0 : 0),
+                        child: _buildReportCard(
+                          report.monthName,
+                          report.totalRevenue,
+                          report.comparison,
+                        ),
+                      ),
+                    );
+                  }),
+                );
+              },
             ),
             const SizedBox(height: 20),
           ],
@@ -198,62 +304,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 style: const TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildBottomSection(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      color: Colors.white,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const NewTransactionScreen()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Transaction',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: BottomNavigationBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              currentIndex: _selectedIndex,
-              onTap: _onItemTapped,
-              selectedItemColor: Colors.black,
-              unselectedItemColor: Colors.grey[600],
-              showSelectedLabels: false,
-              showUnselectedLabels: false,
-              items: const [
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.storefront_outlined), label: 'Home'),
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.receipt_long_outlined), label: 'Orders'),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
