@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sentra_coffee_frontend/services/staff_auth_service.dart';
 import 'package:sentra_coffee_frontend/screens/manage_product_screen.dart';
-import 'package:sentra_coffee_frontend/screens/employee_list_screen.dart';
+// import 'package:sentra_coffee_frontend/screens/employee_list_screen.dart'; // <<< DIHAPUS
 import 'package:sentra_coffee_frontend/screens/new_transaction_screen.dart';
-import 'package:sentra_coffee_frontend/screens/admin_manage_promotions_screen.dart'; // <<< IMPORT BARU
+import 'package:sentra_coffee_frontend/screens/admin_manage_promotions_screen.dart';
 
 class StaffDashboardScreen extends StatefulWidget {
   const StaffDashboardScreen({Key? key}) : super(key: key);
@@ -100,14 +100,9 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
                         context,
                         MaterialPageRoute(
                             builder: (context) => const ManageProductScreen()))),
-                _buildActionItem(
-                    context, Icons.people_alt_outlined, 'List of\nEmployees',
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const EmployeeListScreen()))),
                 
-                // <<< INI TOMBOL BARU UNTUK PROMO >>>
+                // --- BAGIAN 'LIST OF EMPLOYEES' DIHAPUS DARI SINI ---
+                
                 _buildActionItem(
                     context, Icons.campaign_outlined, 'Manage\nPromo',
                     onTap: () => Navigator.push(

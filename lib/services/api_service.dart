@@ -76,6 +76,10 @@ class ApiService {
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
         body: json.encode({'id_menu': idMenu}),
       );
+      print("==== RAW DELETE RESPONSE FROM SERVER ====");
+      print(response.body);
+      print("=======================================");
+      
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
         return responseData['status'] == 'success';
