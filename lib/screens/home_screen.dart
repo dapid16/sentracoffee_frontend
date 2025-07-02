@@ -33,6 +33,8 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Menu>> _menuFuture;
   final ApiService apiService = ApiService();
 
+   final String _imageBaseUrl = 'http://localhost/SentraCoffee/uploads/';
+
   @override
   void initState() {
     super.initState();
@@ -340,44 +342,57 @@ class _HomeScreenState extends State<HomeScreen> {
   
   // Widget lama untuk menampilkan Menu Card
   Widget _buildMenuItemCard(Menu item) {
+    final bool hasImage = item.image != null && item.image!.isNotEmpty;
+    // Ambil URL dari variabel manual _imageBaseUrl
+    final String imageUrl = hasImage ? '$_imageBaseUrl${item.image}' : '';
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProductDetailScreen(product: item.toJson()),
-          ),
-        );
-      },
-      child: Card(
-        elevation: 4,
-        color: AppColors.backgroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: AppColors.lightGreyBackground,
-            width: 1.0,
-          ),
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ProductDetailScreen(product: item.toJson()),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Image.asset(
-                'assets/images/${item.namaMenu.toLowerCase().replaceAll(' ', '')}.png',
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
+      );
+    },
+    child: Card(
+      elevation: 4,
+      color: AppColors.backgroundColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: AppColors.lightGreyBackground,
+          width: 1.0,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            // --- PERUBAHAN UTAMA DI SINI ---
+            child: hasImage
+                ? Image.network( // Menggunakan Image.network untuk memuat dari URL
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Placeholder jika gambar gagal dimuat dari server
+                      return Container(
+                        color: Colors.grey[200],
+                        child: Center(
+                          child: Icon(Icons.broken_image,
+                              size: 50, color: Colors.grey[400]),
+                        ),
+                      );
+                    },
+                  )
+                : Container( // Placeholder jika tidak ada data gambar di database
                     color: Colors.grey[200],
                     child: Center(
-                      child: Icon(Icons.broken_image,
+                      child: Icon(Icons.coffee,
                           size: 50, color: Colors.grey[400]),
                     ),
-                  );
-                },
-              ),
-            ),
+                  ),
+          ),
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),

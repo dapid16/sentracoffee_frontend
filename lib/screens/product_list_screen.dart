@@ -22,7 +22,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   List<Menu> _filteredMenus = [];
 
   // Ganti 'localhost' dengan IP Address jika menjalankan di HP asli
-  final String _imageBaseUrl = 'http://192.168.100.168/SentraCoffee/uploads/';
+  final String _imageBaseUrl = 'http://localhost/SentraCoffee/uploads/';
 
   @override
   void initState() {
@@ -207,6 +207,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
                       final menu = _filteredMenus[index];
                       final bool hasImage =
                           menu.image != null && menu.image!.isNotEmpty;
+                       final imageUrl = '${_imageBaseUrl}${menu.image}';
+                      print('Mencoba memuat gambar untuk ${menu.namaMenu}: $imageUrl');
 
                       // --- ✅ PERUBAHAN TAMPILAN CARD DI SINI ---
                       return Card(
