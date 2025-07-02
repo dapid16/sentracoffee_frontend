@@ -9,10 +9,12 @@ import 'package:sentra_coffee_frontend/models/staff.dart';
 import 'package:sentra_coffee_frontend/models/wallet_report.dart';
 import 'package:sentra_coffee_frontend/models/loyalty_history.dart';
 import 'package:sentra_coffee_frontend/models/promotion.dart';
+import 'package:sentra_coffee_frontend/models/admin_order.dart';
 
 class ApiService {
   final String baseUrl = "http://localhost/SentraCoffee/api";
 
+  // --- Endpoint untuk Menu ---
   Future<List<Menu>> fetchAllMenu() async {
     final response = await http.get(Uri.parse('$baseUrl/menu/read.php'));
     if (response.statusCode == 200) {
@@ -86,6 +88,7 @@ class ApiService {
     }
   }
 
+  // --- Endpoint untuk Customer ---
   Future<Map<String, dynamic>> registerUser(String nama, String email, String password, String? noHp) async {
     final response = await http.post(
       Uri.parse('$baseUrl/customer/create.php'),
@@ -114,6 +117,7 @@ class ApiService {
     return null;
   }
 
+  // --- Endpoint untuk Auth ---
   Future<Map<String, dynamic>> unifiedLogin(String email, String password) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login.php'),
@@ -123,12 +127,15 @@ class ApiService {
     return json.decode(response.body);
   }
 
+  // --- Endpoint untuk Staff ---
   Future<List<Staff>> fetchAllStaff() async {
     final response = await http.get(Uri.parse('$baseUrl/staff/read.php'));
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
       if (data.containsKey('records') && data['records'] is List) {
-        return (data['records'] as List).map((json) => Staff.fromJson(json)).toList();
+        return (data['records'] as List)
+            .map((json) => Staff.fromJson(json))
+            .toList();
       }
     }
     throw Exception('Failed to load staff');
@@ -145,10 +152,10 @@ class ApiService {
     return response.statusCode == 201;
   }
 
-  // <<< FUNGSI INI DIUBAH UNTUK MENGIRIM promo_name >>>
+  // --- Endpoint untuk Transaksi ---
   Future<bool> createTransaction({
     required int customerId,
-    required int staffId,
+    int? staffId,
     required String paymentMethod,
     required double totalAmount,
     required List<TransactionCartItem> items,
@@ -157,13 +164,28 @@ class ApiService {
   }) async {
     try {
       List<Map<String, dynamic>> itemsJson = items.map((item) {
+        double basePrice = item.menu.harga;
+        double sizeMultiplier = 1.0;
+        if (item.size.toLowerCase().contains('small')) {
+          sizeMultiplier = 0.8;
+        } else if (item.size.toLowerCase().contains('large')) {
+          sizeMultiplier = 1.2;
+        }
+        double finalPricePerItem = basePrice * sizeMultiplier;
+
         return {
-          'id_menu': item.menu.idMenu, 'quantity': item.quantity, 'subtotal': item.menu.harga * item.quantity,
+          'id_menu': item.menu.idMenu,
+          'quantity': item.quantity,
+          'subtotal': finalPricePerItem * item.quantity,
         };
       }).toList();
 
       Map<String, dynamic> requestBody = {
-        'id_customer': customerId, 'id_staff': staffId, 'payment_method': paymentMethod, 'total_amount': totalAmount, 'details': itemsJson,
+        'id_customer': customerId,
+        'staffId': staffId,
+        'payment_method': paymentMethod,
+        'total_amount': totalAmount,
+        'details': itemsJson,
       };
       
       if (pointsUsed != null) {
@@ -187,6 +209,7 @@ class ApiService {
     }
   }
   
+  // --- Endpoint untuk Laporan Wallet Owner ---
   Future<List<WalletReport>> fetchWalletReports() async {
     final response = await http.get(Uri.parse('$baseUrl/report/wallet.php'));
     if (response.statusCode == 200) {
@@ -202,6 +225,7 @@ class ApiService {
     }
   }
 
+  // --- Endpoint untuk Riwayat Poin ---
   Future<List<LoyaltyHistory>> fetchLoyaltyHistory(int customerId) async {
     final response = await http.get(Uri.parse('$baseUrl/customer/loyalty_history.php?id_customer=$customerId'));
     if (response.statusCode == 200) {
@@ -213,6 +237,7 @@ class ApiService {
     }
   }
 
+  // --- Endpoint untuk Promosi ---
   Future<List<Promotion>> fetchAllPromotions() async {
     final response = await http.get(Uri.parse('$baseUrl/promotion/read.php'));
     if (response.statusCode == 200) {
@@ -263,7 +288,6 @@ class ApiService {
     }
   }
   
-  // <<< FUNGSI INI DIUBAH UNTUK MENGIRIM promo_name >>>
   Future<Map<String, dynamic>> validatePromoCode({
     required String promoName,
     required double totalPrice,
@@ -277,5 +301,17 @@ class ApiService {
       }),
     );
     return json.decode(response.body);
+  }
+
+  // --- Endpoint untuk Riwayat Transaksi Admin ---
+  Future<List<AdminOrder>> fetchAllTransactions() async {
+    final response = await http.get(Uri.parse('$baseUrl/transaction/read_all.php'));
+    if (response.statusCode == 200) {
+      return adminOrderFromJson(response.body);
+    } else if (response.statusCode == 404) {
+      return [];
+    } else {
+      throw Exception('Failed to load all transactions');
+    }
   }
 }

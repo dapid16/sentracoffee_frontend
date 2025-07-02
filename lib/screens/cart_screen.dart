@@ -8,7 +8,6 @@ import 'package:sentra_coffee_frontend/screens/payment_screen.dart';
 import 'package:sentra_coffee_frontend/utils/constants.dart';
 import 'package:sentra_coffee_frontend/utils/text_styles.dart';
 
-
 class CartScreen extends StatefulWidget {
   const CartScreen({Key? key}) : super(key: key);
 
@@ -134,7 +133,6 @@ class _CartScreenState extends State<CartScreen> {
                         );
                         return;
                       }
-                      // Navigasi ke PaymentScreen tanpa bottom sheet, langsung buka halaman baru
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -171,7 +169,19 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildCartItemCard(CartItem item) {
-    final double totalItemPrice = item.pricePerItem * item.quantity;
+    // <<< PERUBAHAN UTAMA DI SINI >>>
+    // Logika perhitungan harga per item disesuaikan dengan ukuran
+    double price = item.pricePerItem;
+    String customizations = item.customizations.toLowerCase();
+
+    if (customizations.contains('small')) {
+      price *= 0.8;
+    } else if (customizations.contains('large')) {
+      price *= 1.2;
+    }
+    
+    final double totalItemPrice = price * item.quantity;
+    // --- Batas Perubahan ---
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0),
@@ -224,6 +234,12 @@ class _CartScreenState extends State<CartScreen> {
               ),
             ),
             const SizedBox(width: 16),
+            // Tampilkan harga per item yang sudah benar
+            Text(
+              formatRupiah(totalItemPrice),
+              style: AppTextStyles.h4.copyWith(color: AppColors.textColor),
+            ),
+            const SizedBox(width: 16),
             Column(
               children: [
                 IconButton(
@@ -244,11 +260,6 @@ class _CartScreenState extends State<CartScreen> {
                   },
                 ),
               ],
-            ),
-            const SizedBox(width: 16),
-            Text(
-              formatRupiah(totalItemPrice),
-              style: AppTextStyles.h4.copyWith(color: AppColors.textColor),
             ),
           ],
         ),
