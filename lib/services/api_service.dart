@@ -1,5 +1,3 @@
-// lib/services/api_service.dart
-
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
@@ -10,6 +8,7 @@ import 'package:sentra_coffee_frontend/models/wallet_report.dart';
 import 'package:sentra_coffee_frontend/models/loyalty_history.dart';
 import 'package:sentra_coffee_frontend/models/promotion.dart';
 import 'package:sentra_coffee_frontend/models/admin_order.dart';
+import 'package:sentra_coffee_frontend/models/raw_material.dart';
 
 class ApiService {
   final String baseUrl = "http://localhost/SentraCoffee/api";
@@ -313,5 +312,32 @@ class ApiService {
     } else {
       throw Exception('Failed to load all transactions');
     }
+  }
+
+  // --- Endpoint untuk Stok Bahan Baku ---
+  Future<List<RawMaterial>> fetchRawMaterials() async {
+    final response = await http.get(Uri.parse('$baseUrl/stock/read.php'));
+    if (response.statusCode == 200) {
+      return rawMaterialFromJson(response.body);
+    } else if (response.statusCode == 404) {
+      return [];
+    } else {
+      throw Exception('Failed to load raw materials');
+    }
+  }
+
+  Future<bool> updateRawMaterialStock({
+    required int id,
+    required double newStock,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/stock/update.php'),
+      headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      body: jsonEncode(<String, dynamic>{
+        'id_raw_material': id,
+        'current_stock': newStock,
+      }),
+    );
+    return response.statusCode == 200;
   }
 }
