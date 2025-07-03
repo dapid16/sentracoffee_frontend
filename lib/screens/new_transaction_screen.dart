@@ -1,14 +1,9 @@
-// lib/screens/admin/new_transaction_screen.dart (FIX DEFINISI GANDA)
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-// --- PASTIKAN SEMUA MODEL DI-IMPORT DARI SATU SUMBER INI ---
 import 'package:sentra_coffee_frontend/models/menu.dart'; 
 import 'package:sentra_coffee_frontend/services/api_service.dart';
 import 'package:sentra_coffee_frontend/screens/checkout_screen.dart';
 import 'package:sentra_coffee_frontend/screens/product_options_screen.dart';
-
-// --- PASTIKAN TIDAK ADA DEFINISI CLASS TransactionCartItem ATAU CustomizedOrderItem DI SINI LAGI ---
 
 class NewTransactionScreen extends StatefulWidget {
   const NewTransactionScreen({Key? key}) : super(key: key);
@@ -31,7 +26,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
   @override
   void initState() {
     super.initState();
-    _menuFuture = _apiService.fetchAllMenu();
+    _menuFuture = _apiService.fetchAllMenusForAdmin(); 
     _menuFuture.then((menus) {
       if (mounted) {
         setState(() {
@@ -85,9 +80,9 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
     double total = 0;
     for (var item in _currentOrder) {
       double basePrice = item.menu.harga;
-      if (item.size == 'small') {
+      if (item.size.toLowerCase().contains('small')) {
         basePrice *= 0.8;
-      } else if (item.size == 'large') {
+      } else if (item.size.toLowerCase().contains('large')) {
         basePrice *= 1.2;
       }
       total += basePrice * item.quantity;
@@ -209,6 +204,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
   }
 
   Widget _buildMenuCard(Menu menu) {
+    final String imageUrl = 'http://localhost/SentraCoffee/uploads/${menu.image}';
     return Card(
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -239,7 +235,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
             Expanded(
               child: (menu.image != null && menu.image!.isNotEmpty)
                   ? Image.network(
-                      menu.image!,
+                      imageUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Center(
@@ -280,7 +276,7 @@ class _NewTransactionScreenState extends State<NewTransactionScreen> {
                   Text(_formatRupiah(menu.harga), style: TextStyle(color: Colors.brown)),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),

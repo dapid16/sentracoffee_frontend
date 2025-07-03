@@ -28,12 +28,11 @@ class _HomeScreenState extends State<HomeScreen> {
   late PageController _pageController;
   Timer? _timer;
 
-  // --- State Future diubah untuk memuat Promo dan Menu secara terpisah ---
   late Future<List<Promotion>> _promoFuture;
   late Future<List<Menu>> _menuFuture;
   final ApiService apiService = ApiService();
 
-   final String _imageBaseUrl = 'http://localhost/SentraCoffee/uploads/';
+  final String _imageBaseUrl = 'http://localhost/SentraCoffee/uploads/';
 
   @override
   void initState() {
@@ -42,17 +41,16 @@ class _HomeScreenState extends State<HomeScreen> {
       viewportFraction: 0.85,
       initialPage: 0,
     );
-    // Panggil kedua API saat halaman dimuat
     _promoFuture = apiService.fetchActivePromotions();
-    _menuFuture = apiService.fetchAllMenu();
+    _menuFuture = apiService.fetchAvailableMenus();
   }
 
-  void _startPromoAutoScroll(List<Promotion> promoItems) {
-    if (promoItems.isEmpty) return;
+  void _startPromoAutoScroll(List<dynamic> items) {
+    if (items.isEmpty) return;
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_pageController.hasClients) {
-        int nextPage = (_pageController.page!.toInt() + 1) % promoItems.length;
+        int nextPage = (_pageController.page!.toInt() + 1) % items.length;
         _pageController.animateToPage(
           nextPage,
           duration: const Duration(milliseconds: 400),
@@ -187,7 +185,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: AppTextStyles.h3.copyWith(color: AppColors.textColor)),
           ),
           const SizedBox(height: 16),
-          // --- Bagian Promo (diambil dari API) ---
           FutureBuilder<List<Promotion>>(
             future: _promoFuture,
             builder: (context, snapshot) {
@@ -226,14 +223,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (promos.length > 1)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      child: SmoothPageIndicator(
-                        controller: _pageController,
-                        count: promos.length,
-                        effect: WormEffect(
-                          dotHeight: 8.0,
-                          dotWidth: 8.0,
-                          activeDotColor: AppColors.primaryColor,
-                          dotColor: AppColors.greyText.withOpacity(0.5),
+                      child: Center(
+                        child: SmoothPageIndicator(
+                          controller: _pageController,
+                          count: promos.length,
+                          effect: WormEffect(
+                            dotHeight: 8.0,
+                            dotWidth: 8.0,
+                            activeDotColor: AppColors.primaryColor,
+                            dotColor: AppColors.greyText.withOpacity(0.5),
+                          ),
                         ),
                       ),
                     ),
@@ -241,7 +240,6 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-
           const SizedBox(height: 32),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -249,7 +247,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: AppTextStyles.h3.copyWith(color: AppColors.textColor)),
           ),
           const SizedBox(height: 16),
-          // --- Bagian Menu (tetap sama) ---
           FutureBuilder<List<Menu>>(
             future: _menuFuture,
             builder: (context, snapshot) {
@@ -269,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisCount: 2,
                     crossAxisSpacing: 16.0,
                     mainAxisSpacing: 16.0,
-                    childAspectRatio: 0.95,
+                    childAspectRatio: 0.8,
                   ),
                   itemCount: menuItems.length,
                   itemBuilder: (context, index) {
@@ -285,13 +282,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Widget baru untuk menampilkan Promo Card
   Widget _buildPromoCard(Promotion promo) {
     String discountText = '';
     if (promo.discountType == 'persen') {
-      // Menghilangkan .0 jika tidak ada desimal
       final value = double.parse(promo.discountValue);
-      discountText = "${value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2)}% OFF";
+      discountText =
+          "${value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 2)}% OFF";
     } else {
       final value = double.parse(promo.discountValue);
       discountText = "Potongan ${formatRupiah(value)}";
@@ -309,7 +305,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Text(
               promo.promoName,
-              style: AppTextStyles.h3.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+              style: AppTextStyles.h3
+                  .copyWith(color: Colors.white, fontWeight: FontWeight.bold),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -317,7 +314,8 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: Text(
                 promo.description,
-                style: AppTextStyles.bodyText1.copyWith(color: Colors.white.withOpacity(0.9)),
+                style: AppTextStyles.bodyText1
+                    .copyWith(color: Colors.white.withOpacity(0.9)),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -331,7 +329,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Text(
                 discountText,
-                style: AppTextStyles.bodyText1.copyWith(color: Colors.brown, fontWeight: FontWeight.bold),
+                style: AppTextStyles.bodyText1
+                    .copyWith(color: Colors.brown, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -339,60 +338,57 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  
-  // Widget lama untuk menampilkan Menu Card
+
   Widget _buildMenuItemCard(Menu item) {
     final bool hasImage = item.image != null && item.image!.isNotEmpty;
-    // Ambil URL dari variabel manual _imageBaseUrl
     final String imageUrl = hasImage ? '$_imageBaseUrl${item.image}' : '';
+    
     return GestureDetector(
-    onTap: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ProductDetailScreen(product: item.toJson()),
-        ),
-      );
-    },
-    child: Card(
-      elevation: 4,
-      color: AppColors.backgroundColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.lightGreyBackground,
-          width: 1.0,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            // --- PERUBAHAN UTAMA DI SINI ---
-            child: hasImage
-                ? Image.network( // Menggunakan Image.network untuk memuat dari URL
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      // Placeholder jika gambar gagal dimuat dari server
-                      return Container(
-                        color: Colors.grey[200],
-                        child: Center(
-                          child: Icon(Icons.broken_image,
-                              size: 50, color: Colors.grey[400]),
-                        ),
-                      );
-                    },
-                  )
-                : Container( // Placeholder jika tidak ada data gambar di database
-                    color: Colors.grey[200],
-                    child: Center(
-                      child: Icon(Icons.coffee,
-                          size: 50, color: Colors.grey[400]),
-                    ),
-                  ),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductDetailScreen(product: item.toJson()),
           ),
+        );
+      },
+      child: Card(
+        elevation: 4,
+        color: AppColors.backgroundColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: AppColors.lightGreyBackground,
+            width: 1.0,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: hasImage
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: Center(
+                            child: Icon(Icons.broken_image,
+                                size: 50, color: Colors.grey[400]),
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: Icon(Icons.coffee,
+                            size: 50, color: Colors.grey[400]),
+                      ),
+                    ),
+            ),
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),

@@ -1,5 +1,3 @@
-// lib/screens/manage_product_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:sentra_coffee_frontend/screens/product_list_screen.dart';
 import 'package:sentra_coffee_frontend/screens/admin_manage_stock_screen.dart';

@@ -70,8 +70,12 @@ class _AdminEditStockScreenState extends State<AdminEditStockScreen> {
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: (value) {
-                  if (value == null || value.isEmpty) return 'Jumlah stok tidak boleh kosong';
-                  if (double.tryParse(value) == null) return 'Masukkan angka yang valid';
+                  if (value == null || value.isEmpty) {
+                    return 'Jumlah stok tidak boleh kosong';
+                  }
+                  if (double.tryParse(value) == null) {
+                    return 'Masukkan angka yang valid';
+                  }
                   return null;
                 },
               ),

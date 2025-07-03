@@ -1,4 +1,3 @@
-// lib/models/raw_material.dart
 import 'dart:convert';
 
 List<RawMaterial> rawMaterialFromJson(String str) => List<RawMaterial>.from(json.decode(str)["records"].map((x) => RawMaterial.fromJson(x)));
@@ -21,8 +20,9 @@ class RawMaterial {
     factory RawMaterial.fromJson(Map<String, dynamic> json) => RawMaterial(
         idRawMaterial: json["id_raw_material"],
         namaBahan: json["nama_bahan"],
-        currentStock: json["current_stock"],
+        // <<< PERBAIKAN DI SINI >>>
+        currentStock: double.parse(json["current_stock"].toString()),
         unit: json["unit"],
-        minStockLevel: json["min_stock_level"],
+        minStockLevel: double.parse(json["min_stock_level"].toString()),
     );
 }

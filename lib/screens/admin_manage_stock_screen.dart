@@ -1,9 +1,8 @@
-// lib/screens/admin_manage_stock_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:sentra_coffee_frontend/models/raw_material.dart';
 import 'package:sentra_coffee_frontend/services/api_service.dart';
 import 'package:sentra_coffee_frontend/screens/admin_edit_stock_screen.dart';
+import 'package:sentra_coffee_frontend/screens/admin_add_raw_material_screen.dart';
 
 class AdminManageStockScreen extends StatefulWidget {
   const AdminManageStockScreen({Key? key}) : super(key: key);
@@ -31,6 +30,16 @@ class _AdminManageStockScreenState extends State<AdminManageStockScreen> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => AdminEditStockScreen(material: material)),
+    );
+    if (result == true) {
+      _loadMaterials();
+    }
+  }
+
+  void _navigateToAdd() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AdminAddRawMaterialScreen()),
     );
     if (result == true) {
       _loadMaterials();
@@ -72,7 +81,7 @@ class _AdminManageStockScreenState extends State<AdminManageStockScreen> {
                         const Icon(Icons.warning, color: Colors.orange),
                       const SizedBox(width: 8),
                       Text(
-                        "${material.currentStock} ${material.unit}",
+                        "${material.currentStock.toStringAsFixed(2)} ${material.unit}",
                         style: TextStyle(
                           color: isLowStock ? Colors.orange : Colors.black,
                           fontWeight: FontWeight.bold,
@@ -86,6 +95,11 @@ class _AdminManageStockScreenState extends State<AdminManageStockScreen> {
             );
           },
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _navigateToAdd,
+        child: const Icon(Icons.add),
+        tooltip: 'Tambah Bahan Baku',
       ),
     );
   }

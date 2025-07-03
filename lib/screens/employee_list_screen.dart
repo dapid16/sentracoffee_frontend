@@ -1,9 +1,7 @@
-// lib/screens/admin/employee_list_screen.dart (FINAL DENGAN NAVIGASI ADD)
-
 import 'package:flutter/material.dart';
 import 'package:sentra_coffee_frontend/models/staff.dart';
 import 'package:sentra_coffee_frontend/services/api_service.dart';
-import 'package:sentra_coffee_frontend/screens/add_employee_screen.dart'; // <<< IMPORT HALAMAN TUJUAN
+import 'package:sentra_coffee_frontend/screens/add_employee_screen.dart';
 
 class EmployeeListScreen extends StatefulWidget {
   const EmployeeListScreen({Key? key}) : super(key: key);
@@ -15,7 +13,6 @@ class EmployeeListScreen extends StatefulWidget {
 class _EmployeeListScreenState extends State<EmployeeListScreen> {
   final ApiService _apiService = ApiService();
   late Future<List<Staff>> _staffFuture;
-  
   List<Staff> _allStaff = [];
   List<Staff> _filteredStaff = [];
   final TextEditingController _searchController = TextEditingController();
@@ -54,6 +51,47 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         return staff.namaStaff.toLowerCase().contains(query);
       }).toList();
     });
+  }
+
+  // <<< FUNGSI BARU UNTUK MENGHAPUS STAFF >>>
+  Future<void> _deleteStaff(Staff staff) async {
+    final bool? confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Hapus'),
+        content: Text('Apakah Anda yakin ingin menghapus staff bernama ${staff.namaStaff}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final success = await _apiService.deleteStaff(staff.idStaff);
+        if (mounted && success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Staff berhasil dihapus!'), backgroundColor: Colors.green),
+          );
+          _loadStaff(); // Muat ulang daftar staff setelah berhasil hapus
+        } else {
+          throw Exception('Gagal menghapus staff dari server.');
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -122,15 +160,12 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           ],
         ),
       ),
-      // --- PERBAIKAN DI SINI ---
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // Navigasi ke halaman AddEmployee dan TUNGGU hasilnya
           final bool? isSuccess = await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AddEmployeeScreen()),
           );
-          // Jika kita kembali dengan sinyal sukses (true), refresh daftar staff
           if (isSuccess == true) {
             _loadStaff();
           }
@@ -150,26 +185,41 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         onTap: () {
           print('${staff.namaStaff} diklik');
         },
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: Colors.grey[200],
-              child: Text(
-                staff.namaStaff.isNotEmpty ? staff.namaStaff.substring(0, 1) : '?',
-                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Colors.grey[200],
+                    child: Text(
+                      staff.namaStaff.isNotEmpty ? staff.namaStaff.substring(0, 1) : '?',
+                      style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    staff.namaStaff,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    staff.role,
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              staff.namaStaff,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              staff.role,
-              style: const TextStyle(color: Colors.grey, fontSize: 14),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                icon: const Icon(Icons.delete_forever, color: Colors.redAccent),
+                onPressed: () => _deleteStaff(staff),
+                tooltip: 'Hapus Staff',
+              ),
             ),
           ],
         ),
