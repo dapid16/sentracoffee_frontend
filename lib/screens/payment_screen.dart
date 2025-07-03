@@ -1,5 +1,3 @@
-// lib/screens/payment_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -58,9 +56,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       });
     }
 
-    setState(() {
-      _isApplyingPromo = true;
-    });
+    setState(() { _isApplyingPromo = true; });
 
     final apiService = ApiService();
     final response = await apiService.validatePromoCode(
@@ -83,9 +79,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _appliedPromoName = null;
       });
     }
-    setState(() {
-      _isApplyingPromo = false;
-    });
+    setState(() { _isApplyingPromo = false; });
   }
 
   void _processPayment() async {
@@ -103,6 +97,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Poin tidak cukup untuk redeem.'),
           backgroundColor: Colors.red));
+      return;
+    }
+    
+    if (_isRedeemingPoints && cartService.items.length > 1) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Redeem poin hanya berlaku untuk pembelian 1 item.'),
+          backgroundColor: Colors.orange,
+        ));
       return;
     }
 
@@ -130,8 +132,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       final success = await apiService.createTransaction(
         customerId: authService.loggedInCustomer!.idCustomer,
-        staffId: 1,
-        paymentMethod: _selectedPaymentMethod,
+        staffId: 1, // Asumsi ID Staff default untuk transaksi online
+        paymentMethod: _isRedeemingPoints ? 'Points' : _selectedPaymentMethod,
         totalAmount: _finalTotal,
         items: transactionItems,
         pointsUsed: _isRedeemingPoints ? redeemCost : null,
@@ -143,14 +145,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (success) {
         await authService.refreshLoggedInCustomerData();
         cartService.clearCart();
-        
-        // Perubahan utama ada di baris navigasi ini
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const PaymentSuccessScreen()),
-          (route) => route.isFirst, // Ini memastikan AuthWrapper tidak dihapus
+          (route) => route.isFirst,
         );
-
       } else {
         throw Exception('Gagal memproses transaksi di server.');
       }
@@ -166,6 +165,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
+    final cartService = Provider.of<CartService>(context);
     final customerPoints = authService.loggedInCustomer?.points ?? 0;
     
     bool canRedeem = customerPoints >= redeemCost;
@@ -350,6 +350,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   value: _isRedeemingPoints,
                   onChanged: canRedeem
                       ? (value) {
+                          if (value) {
+                            if (cartService.items.length > 1) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Redeem poin hanya berlaku untuk pembelian 1 item.'),
+                                    backgroundColor: Colors.orange),
+                              );
+                              return;
+                            }
+                          }
                           setState(() {
                             _isRedeemingPoints = value;
                             _selectedPaymentMethod = value ? 'Points' : 'dana';

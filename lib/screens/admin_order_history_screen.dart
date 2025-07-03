@@ -1,5 +1,3 @@
-// lib/screens/admin_order_history_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -18,7 +16,6 @@ class _AdminOrderHistoryScreenState extends State<AdminOrderHistoryScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Panggil fetchOrders saat halaman pertama kali dibangun
       Provider.of<AdminOrderService>(context, listen: false).fetchOrders();
     });
   }
@@ -71,10 +68,11 @@ class _AdminOrderHistoryScreenState extends State<AdminOrderHistoryScreen> {
     String servedBy;
     IconData servedByIcon;
     
-    if (order.staffName != null) {
+    // Logika untuk menentukan siapa yang memproses transaksi
+    if (order.staffName != null && order.staffName != 'radja') {
       servedBy = "Oleh Staff: ${order.staffName}";
       servedByIcon = Icons.person_outline;
-    } else if (order.paymentMethod == "Points" || order.paymentMethod == "dana" || order.paymentMethod == "credit_card") {
+    } else if (order.staffName == 'radja') {
       servedBy = "Pesanan Mandiri (Online)";
       servedByIcon = Icons.phone_android;
     } else {
@@ -105,18 +103,15 @@ class _AdminOrderHistoryScreenState extends State<AdminOrderHistoryScreen> {
               ],
             ),
             const Divider(height: 20),
-
             _buildInfoRow(Icons.account_circle_outlined, "Customer: ${order.customerName ?? 'N/A'}"),
             const SizedBox(height: 4),
             _buildInfoRow(servedByIcon, servedBy),
             const SizedBox(height: 12),
-
             ...order.details.map((detail) => Padding(
               padding: const EdgeInsets.only(left: 8.0, bottom: 4),
               child: Text("• ${detail.quantity}x ${detail.namaMenu}"),
             )).toList(),
             const Divider(height: 20),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
