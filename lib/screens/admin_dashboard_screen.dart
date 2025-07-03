@@ -1,5 +1,3 @@
-// lib/screens/admin_dashboard_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sentra_coffee_frontend/models/wallet_report.dart';
@@ -22,11 +20,18 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
+  final GlobalKey<_DashboardHomePageState> _homePageKey = GlobalKey<_DashboardHomePageState>();
 
-  final List<Widget> _pages = [
-    const _DashboardHomePage(),
-    const AdminOrderHistoryScreen(),
-  ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      _DashboardHomePage(key: _homePageKey),
+      const AdminOrderHistoryScreen(),
+    ];
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -72,7 +77,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 color: Colors.black, size: 28),
             onPressed: () {
               Provider.of<AdminAuthService>(context, listen: false).logout();
-              Provider.of<AdminOrderService>(context, listen: false).fetchOrders();
             },
           ),
           const SizedBox(width: 8),
@@ -104,8 +108,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       builder: (context) => const NewTransactionScreen()),
                 );
                 if (mounted) {
-                  Provider.of<AdminOrderService>(context, listen: false)
-                      .fetchOrders();
+                  // Memicu refresh data di kedua halaman setelah transaksi
+                  Provider.of<AdminOrderService>(context, listen: false).fetchOrders();
+                  _homePageKey.currentState?.refreshReports();
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -147,8 +152,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 }
 
-// <<< PERUBAHAN UTAMA DIMULAI DARI SINI >>>
-// Widget diubah menjadi StatefulWidget untuk memuat data laporan
 class _DashboardHomePage extends StatefulWidget {
   const _DashboardHomePage({Key? key}) : super(key: key);
 
@@ -163,8 +166,13 @@ class _DashboardHomePageState extends State<_DashboardHomePage> {
   @override
   void initState() {
     super.initState();
-    // Panggil API saat halaman pertama kali dimuat
     _reportsFuture = _apiService.fetchWalletReports();
+  }
+
+  void refreshReports() {
+    setState(() {
+      _reportsFuture = _apiService.fetchWalletReports();
+    });
   }
 
   @override
@@ -216,33 +224,31 @@ class _DashboardHomePageState extends State<_DashboardHomePage> {
             const Text('Laporan',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            
-            // Gunakan FutureBuilder untuk menampilkan data laporan secara dinamis
             FutureBuilder<List<WalletReport>>(
               future: _reportsFuture,
               builder: (context, snapshot) {
-                // Saat data sedang dimuat
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                // Jika terjadi error
                 if (snapshot.hasError) {
-                  return Center(child: Text("Gagal memuat laporan: ${snapshot.error}"));
+                  return Center(
+                      child: Text("Gagal memuat laporan: ${snapshot.error}"));
                 }
-                // Jika data tidak ada atau kosong
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text("Belum ada laporan penjualan."));
+                  return const Center(
+                      child: Text("Belum ada laporan penjualan."));
                 }
-                
-                // Ambil 2 laporan terbaru
+
                 final latestReports = snapshot.data!.take(2).toList();
-                
+
                 return Row(
                   children: List.generate(latestReports.length, (index) {
                     final report = latestReports[index];
                     return Expanded(
                       child: Padding(
-                        padding: EdgeInsets.only(right: index == 0 ? 8.0 : 0, left: index == 1 ? 8.0 : 0),
+                        padding: EdgeInsets.only(
+                            right: index == 0 ? 8.0 : 0,
+                            left: index == 1 ? 8.0 : 0),
                         child: _buildReportCard(
                           report.monthName,
                           report.totalRevenue,

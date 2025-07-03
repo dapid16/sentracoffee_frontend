@@ -14,8 +14,7 @@ class PaymentSuccessScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
     final String userName = authService.loggedInCustomer?.nama ?? 'User';
-    final String dummyOrderTime = '18:10';
-    final String dummyDeliveryAddress = 'Seturan';
+
 
     return Scaffold(
       backgroundColor: AppColors.lightGreyBackground,
@@ -77,7 +76,7 @@ class PaymentSuccessScreen extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 30.0),
                     child: Text(
-                      'The order will be ready today to $dummyOrderTime at the address $dummyDeliveryAddress.',
+                      'The order will be ready.',
                       textAlign: TextAlign.center,
                       style: AppTextStyles.bodyText1.copyWith(
                           color: AppColors.textColor,

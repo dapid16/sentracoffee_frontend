@@ -1,15 +1,13 @@
-// lib/screens/admin/add_product_screen.dart (FINAL BISA ADD & EDIT)
-
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sentra_coffee_frontend/models/menu.dart';
+import 'package:sentra_coffee_frontend/models/menu_composition.dart';
+import 'package:sentra_coffee_frontend/models/raw_material.dart';
 import 'package:sentra_coffee_frontend/services/api_service.dart';
 
 class AddProductScreen extends StatefulWidget {
-  // --- PERUBAHAN #1: Tambahkan properti untuk menerima data menu yang akan diedit ---
   final Menu? menuToEdit;
-
   const AddProductScreen({Key? key, this.menuToEdit}) : super(key: key);
 
   @override
@@ -26,37 +24,42 @@ class _AddProductScreenState extends State<AddProductScreen> {
   String? _selectedImageName;
   bool _isLoading = false;
 
-  // --- PERUBAHAN #2: Tambahkan variabel untuk mode edit dan URL gambar lama ---
   bool _isEditMode = false;
   String? _existingImageUrl;
+
+  List<MenuComposition> _compositions = [];
+  List<RawMaterial> _availableMaterials = [];
+  bool _isDataLoading = true;
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    // --- PERUBAHAN #3: Cek jika ini mode EDIT saat halaman pertama kali dibuka ---
-    if (widget.menuToEdit != null) {
-      _isEditMode = true;
-      final menu = widget.menuToEdit!;
-
-      // Isi semua controller dengan data dari produk yang akan diedit
-      _namaController.text = menu.namaMenu;
-      _hargaController.text = menu.harga.toStringAsFixed(0);
-      _kategoriController.text = menu.kategori;
-      
-      // Simpan URL gambar yang sudah ada untuk ditampilkan
-      if (menu.image != null && menu.image!.isNotEmpty) {
-        // Ganti 'localhost' dengan IP Address jika menjalankan di HP asli
-        _existingImageUrl = 'http://localhost/SentraCoffee/uploads/${menu.image}';
-      }
-    }
+    _loadInitialData();
   }
 
-  @override
-  void dispose() {
-    _namaController.dispose();
-    _hargaController.dispose();
-    _kategoriController.dispose();
-    super.dispose();
+  Future<void> _loadInitialData() async {
+    try {
+      _availableMaterials = await _apiService.fetchRawMaterials();
+
+      if (widget.menuToEdit != null) {
+        _isEditMode = true;
+        final menu = widget.menuToEdit!;
+        _namaController.text = menu.namaMenu;
+        _hargaController.text = menu.harga.toStringAsFixed(0);
+        _kategoriController.text = menu.kategori;
+        if (menu.image != null && menu.image!.isNotEmpty) {
+          _existingImageUrl = 'http://localhost/SentraCoffee/uploads/${menu.image}';
+        }
+        _compositions = await _apiService.getMenuComposition(menu.idMenu);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal memuat data awal: $e")));
+    } finally {
+      if (mounted) {
+        setState(() => _isDataLoading = false);
+      }
+    }
   }
 
   Future<void> _pickImage() async {
@@ -71,56 +74,57 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
   }
 
-  // --- PERUBAHAN #4: Ubah nama fungsi dari _addProduct menjadi _saveProduct dan rombak total logikanya ---
+  void _addCompositionField() {
+    setState(() {
+      _compositions.add(MenuComposition(quantityNeeded: 0));
+    });
+  }
+
+  void _removeCompositionField(int index) {
+    setState(() {
+      _compositions.removeAt(index);
+    });
+  }
+
   void _saveProduct() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
+    if (!_formKey.currentState!.validate()) return;
+    
+    for (var comp in _compositions) {
+      if (comp.idRawMaterial == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Silakan pilih bahan untuk semua komposisi.'), backgroundColor: Colors.orange));
+        return;
+      }
     }
-    // Validasi gambar hanya wajib untuk mode Add, di mode Edit gambar opsional
+
     if (!_isEditMode && (_selectedImageBytes == null || _selectedImageName == null)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Silakan pilih gambar produk terlebih dahulu.'), backgroundColor: Colors.orange),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Silakan pilih gambar produk.'), backgroundColor: Colors.orange));
       return;
     }
 
     setState(() => _isLoading = true);
-
-    final apiService = ApiService();
+    
     String? finalImageFilename;
 
     try {
-      // TAHAP 1: UPLOAD GAMBAR JIKA ADA GAMBAR BARU YANG DIPILIH
-      if (_selectedImageBytes != null && _selectedImageName != null) {
-        print('Uploading new image...');
-        finalImageFilename = await apiService.uploadImage(_selectedImageBytes!, _selectedImageName!);
-        if (finalImageFilename == null) {
-          throw Exception('Image upload failed, filename not received.');
-        }
-        print('Image uploaded, new filename: $finalImageFilename');
-      } else if (_isEditMode) {
-        // Jika mode edit dan tidak ada gambar baru, pakai nama file gambar yang lama
-        finalImageFilename = widget.menuToEdit!.image;
+      if (_selectedImageBytes != null) {
+        finalImageFilename = await _apiService.uploadImage(_selectedImageBytes!, _selectedImageName!);
+        if (finalImageFilename == null) throw Exception('Image upload failed.');
+      } else {
+        finalImageFilename = widget.menuToEdit?.image;
       }
-
-      // TAHAP 2: SIMPAN ATAU UPDATE DATA PRODUK
+      
+      bool success = false;
       if (_isEditMode) {
-        // --- LOGIKA UNTUK UPDATE ---
         final updatedMenu = Menu(
-          idMenu: widget.menuToEdit!.idMenu, // Pakai ID yang sudah ada
+          idMenu: widget.menuToEdit!.idMenu,
           namaMenu: _namaController.text,
           kategori: _kategoriController.text,
           harga: double.tryParse(_hargaController.text) ?? 0,
-          isAvailable: widget.menuToEdit!.isAvailable, // Asumsi status tidak diubah di sini
-          image: finalImageFilename, // Pakai nama file baru (jika ada) atau yang lama
+          isAvailable: widget.menuToEdit!.isAvailable,
+          image: finalImageFilename,
         );
-        print('Updating menu data...');
-        // Pastikan ada method updateMenu di ApiService
-        final bool success = await apiService.updateMenu(updatedMenu);
-        if (!success) throw Exception('Failed to update menu data.');
-
+        success = await _apiService.updateMenu(updatedMenu, _compositions);
       } else {
-        // --- LOGIKA UNTUK CREATE (YANG LAMA) ---
         final newMenu = Menu(
           idMenu: 0,
           namaMenu: _namaController.text,
@@ -129,30 +133,22 @@ class _AddProductScreenState extends State<AddProductScreen> {
           isAvailable: true,
           image: finalImageFilename,
         );
-        print('Creating menu data...');
-        final bool success = await apiService.createMenu(newMenu);
-        if (!success) throw Exception('Failed to create menu data.');
+        success = await _apiService.createMenu(newMenu, _compositions);
       }
       
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Produk berhasil ${_isEditMode ? 'diperbarui' : 'ditambahkan'}!'), 
-          backgroundColor: Colors.green
-        ),
-      );
-      Navigator.of(context).pop(true);
-
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Produk berhasil ${_isEditMode ? 'diperbarui' : 'ditambahkan'}!'), backgroundColor: Colors.green));
+        Navigator.of(context).pop(true);
+      } else {
+        throw Exception('Gagal menyimpan data produk ke server.');
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Terjadi kesalahan: $e'), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Terjadi kesalahan: $e'), backgroundColor: Colors.red));
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -164,98 +160,97 @@ class _AddProductScreenState extends State<AddProductScreen> {
         backgroundColor: Colors.white,
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black),
-        // --- PERUBAHAN #5: Judul AppBar dinamis sesuai mode ---
         title: Text(
-          _isEditMode ? 'Edit Product' : 'Add Product', 
+          _isEditMode ? 'Edit Product' : 'Add Product',
           style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
         ),
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GestureDetector(
-                      onTap: _pickImage,
-                      child: Container(
-                        height: 150,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade400, width: 1.5),
-                        ),
-                        // --- PERUBAHAN #6: Logika tampilan gambar yang lebih kompleks ---
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(11),
-                          child: _selectedImageBytes != null
-                              // 1. Prioritas: Tampilkan gambar baru yang dipilih
-                              ? Image.memory(_selectedImageBytes!, fit: BoxFit.cover)
-                              // 2. Jika tidak ada, tampilkan gambar lama (mode edit)
-                              : (_existingImageUrl != null
-                                  ? Image.network(_existingImageUrl!, fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image)))
-                                  // 3. Jika tidak ada keduanya, tampilkan placeholder
-                                  : const Center(
-                                      child: Text('Product Image', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                                    )),
-                        ),
+      body: _isDataLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          GestureDetector(
+                            onTap: _pickImage,
+                            child: Container(
+                              height: 150,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey.shade400, width: 1.5),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(11),
+                                child: _selectedImageBytes != null
+                                    ? Image.memory(_selectedImageBytes!, fit: BoxFit.cover)
+                                    : (_existingImageUrl != null
+                                        ? Image.network(_existingImageUrl!, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image)))
+                                        : const Center(
+                                            child: Text('Product Image', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                                          )),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildTextField(controller: _namaController, labelText: 'Product Name'),
+                          const SizedBox(height: 16),
+                          _buildTextField(controller: _hargaController, labelText: 'Sell Price', keyboardType: TextInputType.number),
+                          const SizedBox(height: 16),
+                          _buildTextField(controller: _kategoriController, labelText: 'Category'),
+                          const Divider(height: 48, thickness: 1),
+                          const Text("Komposisi Bahan", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 16),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _compositions.length,
+                            itemBuilder: (context, index) {
+                              return _buildCompositionRow(index);
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton.icon(
+                            onPressed: _addCompositionField,
+                            icon: const Icon(Icons.add),
+                            label: const Text("Tambah Bahan"),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    _buildTextField(
-                      controller: _namaController,
-                      labelText: 'Product Name',
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _hargaController,
-                      labelText: 'Sell Price',
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _kategoriController,
-                      labelText: 'Category',
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : ElevatedButton(
+                            onPressed: _saveProduct,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: Text(
+                              _isEditMode ? 'Save Changes' : 'Add',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+                            ),
+                          ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      // --- PERUBAHAN #7: Panggil fungsi _saveProduct ---
-                      onPressed: _saveProduct,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      // --- PERUBAHAN #8: Teks tombol dinamis sesuai mode ---
-                      child: Text(
-                        _isEditMode ? 'Save Changes' : 'Add', 
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
-                      ),
-                    ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -270,6 +265,68 @@ class _AddProductScreenState extends State<AddProductScreen> {
         focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.black)),
       ),
       validator: (value) => value!.isEmpty ? '$labelText tidak boleh kosong' : null,
+    );
+  }
+
+  Widget _buildCompositionRow(int index) {
+    final currentComposition = _compositions[index];
+    RawMaterial? selectedMaterial;
+    if (currentComposition.idRawMaterial != null) {
+      try {
+        selectedMaterial = _availableMaterials.firstWhere((m) => m.idRawMaterial == currentComposition.idRawMaterial);
+      } catch (e) {
+        selectedMaterial = null;
+      }
+    }
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            flex: 4,
+            child: DropdownButtonFormField<int>(
+              value: selectedMaterial?.idRawMaterial,
+              isExpanded: true,
+              hint: const Text("Pilih Bahan"),
+              items: _availableMaterials.map((material) {
+                return DropdownMenuItem<int>(
+                  value: material.idRawMaterial,
+                  child: Text(material.namaBahan, overflow: TextOverflow.ellipsis),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _compositions[index].idRawMaterial = value;
+                  _compositions[index].unit = _availableMaterials.firstWhere((m) => m.idRawMaterial == value).unit;
+                });
+              },
+              validator: (value) => value == null ? 'Pilih' : null,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
+            child: TextFormField(
+              initialValue: currentComposition.quantityNeeded.toString(),
+              decoration: InputDecoration(
+                labelText: "Jumlah",
+                suffixText: currentComposition.unit ?? '',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (value) {
+                currentComposition.quantityNeeded = double.tryParse(value) ?? 0.0;
+              },
+              validator: (value) => (value == null || value.isEmpty || double.tryParse(value) == null) ? '!' : null,
+            ),
+          ),
+          IconButton(
+            onPressed: () => _removeCompositionField(index),
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,5 +1,3 @@
-// lib/screens/admin/product_list_screen.dart (BISA EDIT & DELETE)
-
 import 'package:flutter/material.dart';
 import 'package:sentra_coffee_frontend/models/menu.dart';
 import 'package:sentra_coffee_frontend/services/api_service.dart';
@@ -17,11 +15,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
   late Future<List<Menu>> _menuItemsFuture;
   final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
-
   List<Menu> _allMenus = [];
   List<Menu> _filteredMenus = [];
-
-  // Ganti 'localhost' dengan IP Address jika menjalankan di HP asli
   final String _imageBaseUrl = 'http://localhost/SentraCoffee/uploads/';
 
   @override
@@ -39,7 +34,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
   void _loadMenus() {
     setState(() {
-      _menuItemsFuture = _apiService.fetchAllMenu();
+      _menuItemsFuture = _apiService.fetchAllMenusForAdmin();
       _menuItemsFuture.then((menus) {
         if (mounted) {
           setState(() {
@@ -61,17 +56,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   String _formatRupiah(double amount) {
-    return NumberFormat.currency(
-            locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
-        .format(amount);
+    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(amount);
   }
   
   Future<void> _navigateToEditScreen(Menu menu) async {
     final bool? isSuccess = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => AddProductScreen(menuToEdit: menu),
-      ),
+      MaterialPageRoute(builder: (context) => AddProductScreen(menuToEdit: menu)),
     );
     if (isSuccess == true) {
       _loadMenus();
@@ -88,40 +79,37 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }
   }
 
-  // --- ✅ FUNGSI BARU UNTUK DELETE ---
   Future<void> _deleteProduct(int idMenu) async {
-    // Tampilkan dialog konfirmasi sebelum menghapus
     final bool? confirmDelete = await showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Konfirmasi Hapus'),
-          content: const Text('Apakah Anda yakin ingin menghapus produk ini?'),
+          content: const Text('Apakah Anda yakin ingin menonaktifkan produk ini?'),
           actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false), // Batal
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('Batal'),
             ),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(true), // Hapus
-              child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Nonaktifkan', style: TextStyle(color: Colors.red)),
             ),
           ],
         );
       },
     );
 
-    // Jika user menekan tombol "Hapus"
     if (confirmDelete == true) {
       try {
         final bool success = await _apiService.deleteMenu(idMenu);
         if (mounted && success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Produk berhasil dihapus!'), backgroundColor: Colors.green),
+            const SnackBar(content: Text('Produk berhasil dinonaktifkan!'), backgroundColor: Colors.green),
           );
-          _loadMenus(); // Muat ulang daftar produk
+          _loadMenus();
         } else {
-          throw Exception('Gagal menghapus produk dari server.');
+          throw Exception('Gagal menonaktifkan produk dari server.');
         }
       } catch (e) {
         if (mounted) {
@@ -132,7 +120,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
       }
     }
   }
-  // --- BATAS FUNGSI BARU ---
 
   @override
   Widget build(BuildContext context) {
@@ -142,8 +129,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
-        title: const Text('Product',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: const Text('Product', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
       body: Padding(
@@ -165,8 +151,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      BorderSide(color: Theme.of(context).primaryColor),
+                  borderSide: BorderSide(color: Theme.of(context).primaryColor),
                 ),
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 filled: true,
@@ -185,42 +170,33 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     return Center(child: Text('Error: ${snapshot.error}'));
                   }
                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(
-                        child: Text('Tidak ada menu yang ditemukan.'));
+                    return const Center(child: Text('Tidak ada menu yang ditemukan.'));
                   }
-
-                  if (_filteredMenus.isEmpty &&
-                      _searchController.text.isNotEmpty) {
+                  if (_filteredMenus.isEmpty && _searchController.text.isNotEmpty) {
                     return const Center(child: Text('Produk tidak ditemukan.'));
                   }
-
                   return GridView.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      childAspectRatio: 0.8, // Aspect ratio disesuaikan
+                      childAspectRatio: 0.8,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
                     ),
                     itemCount: _filteredMenus.length,
                     itemBuilder: (context, index) {
                       final menu = _filteredMenus[index];
-                      final bool hasImage =
-                          menu.image != null && menu.image!.isNotEmpty;
-                       final imageUrl = '${_imageBaseUrl}${menu.image}';
-                      print('Mencoba memuat gambar untuk ${menu.namaMenu}: $imageUrl');
-
-                      // --- ✅ PERUBAHAN TAMPILAN CARD DI SINI ---
+                      final bool hasImage = menu.image != null && menu.image!.isNotEmpty;
+                      
                       return Card(
+                        color: menu.isAvailable ? Colors.white : Colors.grey[300],
                         elevation: 2,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         clipBehavior: Clip.antiAlias,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
-                              child: InkWell( // Aksi Edit hanya pada gambar
+                              child: InkWell(
                                 onTap: () => _navigateToEditScreen(menu),
                                 child: Container(
                                   width: double.infinity,
@@ -229,8 +205,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                       ? Image.network(
                                           '$_imageBaseUrl${menu.image}',
                                           fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) {
+                                          errorBuilder: (context, error, stackTrace) {
                                             return const Center(
                                                 child: Icon(Icons.broken_image,
                                                     color: Colors.grey,
@@ -245,9 +220,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(8, 8, 0, 8), // Sesuaikan padding
+                              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Expanded(
                                     child: Column(
@@ -265,28 +241,27 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                         Text(
                                           _formatRupiah(menu.harga),
                                           style: TextStyle(
-                                            color: Theme.of(context).primaryColor,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
+                                              color: menu.isAvailable ? Theme.of(context).primaryColor : Colors.grey[600],
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  // Tombol Delete
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                    onPressed: () => _deleteProduct(menu.idMenu),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
+                                  if (menu.isAvailable)
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                      onPressed: () => _deleteProduct(menu.idMenu),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                    ),
                                 ],
                               ),
                             ),
                           ],
                         ),
                       );
-                      // --- BATAS PERUBAHAN TAMPILAN CARD ---
                     },
                   );
                 },

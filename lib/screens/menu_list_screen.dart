@@ -1,4 +1,4 @@
-// lib/screens/menu_list_screen.dart (VERSI UPGRADE DENGAN GAMBAR DINAMIS)
+// lib/screens/menu_list_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:sentra_coffee_frontend/models/menu.dart';
@@ -11,15 +11,10 @@ import 'package:intl/intl.dart';
 class MenuListScreen extends StatelessWidget {
   final ApiService apiService = ApiService();
 
-  // --- PENTING: SESUAIKAN URL INI DENGAN TEMPAT LO NGETES ---
-  // Pakai localhost untuk testing di Chrome
   final String _imageBaseUrl = 'http://localhost/SentraCoffee/uploads/';
-  // Pakai 10.0.2.2 untuk testing di Emulator Android
-  // final String _imageBaseUrl = 'http://10.0.2.2/SentraCoffee/uploads/';
 
   MenuListScreen({Key? key}) : super(key: key);
 
-  // Helper untuk format Rupiah
   String formatRupiah(double amount) {
     return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(amount);
   }
@@ -41,7 +36,7 @@ class MenuListScreen extends StatelessWidget {
         ),
       ),
       body: FutureBuilder<List<Menu>>(
-        future: apiService.fetchAllMenu(),
+        future: apiService.fetchAvailableMenus(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -64,7 +59,7 @@ class MenuListScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   elevation: 2,
-                  clipBehavior: Clip.antiAlias, // Agar gambar mengikuti bentuk Card
+                  clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     onTap: () {
                       Navigator.push(
@@ -76,24 +71,22 @@ class MenuListScreen extends StatelessWidget {
                     },
                     child: Row(
                       children: [
-                        // --- BAGIAN GAMBAR YANG DIUBAH ---
                         SizedBox(
                           width: 100,
                           height: 100,
                           child: hasImage
                               ? Image.network(
-                                  '$_imageBaseUrl${menu.image}', // Sambungkan URL
+                                  '$_imageBaseUrl${menu.image}',
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) {
                                     return const Center(child: Icon(Icons.broken_image_outlined, color: Colors.grey));
                                   },
                                 )
-                              : Container( // Fallback jika tidak ada gambar
+                              : Container(
                                   color: Colors.grey[200],
                                   child: const Center(child: Icon(Icons.coffee_outlined, color: Colors.grey)),
                                 ),
                         ),
-                        // --- AKHIR BAGIAN GAMBAR ---
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12.0),

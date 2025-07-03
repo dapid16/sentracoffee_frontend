@@ -1,12 +1,11 @@
-// lib/screens/staff_dashboard_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sentra_coffee_frontend/services/staff_auth_service.dart';
 import 'package:sentra_coffee_frontend/screens/manage_product_screen.dart';
-// import 'package:sentra_coffee_frontend/screens/employee_list_screen.dart'; // <<< DIHAPUS
 import 'package:sentra_coffee_frontend/screens/new_transaction_screen.dart';
 import 'package:sentra_coffee_frontend/screens/admin_manage_promotions_screen.dart';
+import 'package:sentra_coffee_frontend/screens/admin_order_history_screen.dart';
+import 'package:sentra_coffee_frontend/services/admin_order_service.dart';
 
 class StaffDashboardScreen extends StatefulWidget {
   const StaffDashboardScreen({Key? key}) : super(key: key);
@@ -18,6 +17,12 @@ class StaffDashboardScreen extends StatefulWidget {
 class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   int _selectedIndex = 0;
 
+  // Daftar halaman untuk bottom navigation bar
+  final List<Widget> _pages = [
+    const _StaffDashboardHomePage(), // Widget untuk konten utama
+    const AdminOrderHistoryScreen(), // Halaman riwayat transaksi yang sama dengan admin
+  ];
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -28,11 +33,6 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
   Widget build(BuildContext context) {
     final staffAuthService = Provider.of<StaffAuthService>(context, listen: false);
     final staffName = staffAuthService.currentStaff?.namaStaff ?? 'Staff';
-
-    final List<Widget> _pages = [
-      _buildDashboardContent(context),
-      const Center(child: Text('Halaman Orders Staff')), // Placeholder
-    ];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -57,11 +57,6 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined,
-                color: Colors.black, size: 28),
-            onPressed: () {},
-          ),
-          IconButton(
             icon: const Icon(Icons.logout_outlined,
                 color: Colors.black, size: 28),
             onPressed: () {
@@ -79,71 +74,6 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
     );
   }
 
-  Widget _buildDashboardContent(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 4,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 16,
-              children: [
-                _buildActionItem(
-                    context, Icons.inventory_2_outlined, 'Manage\nProduct',
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const ManageProductScreen()))),
-                
-                // --- BAGIAN 'LIST OF EMPLOYEES' DIHAPUS DARI SINI ---
-                
-                _buildActionItem(
-                    context, Icons.campaign_outlined, 'Manage\nPromo',
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) =>
-                                const AdminManagePromotionsScreen()))),
-                
-                _buildActionItem(context, Icons.help_outline, 'Help',
-                    onTap: () => print("Help tapped")),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionItem(BuildContext context, IconData icon, String label,
-      {VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32, color: Colors.black87),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildBottomSection(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -155,12 +85,15 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
             width: double.infinity,
             height: 50,
             child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                await Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (context) => const NewTransactionScreen()),
+                  MaterialPageRoute(builder: (context) => const NewTransactionScreen()),
                 );
+                // Setelah kembali, refresh data riwayat
+                if (mounted) {
+                  Provider.of<AdminOrderService>(context, listen: false).fetchOrders();
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
@@ -196,6 +129,73 @@ class _StaffDashboardScreenState extends State<StaffDashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Widget terpisah untuk konten utama dashboard staff
+class _StaffDashboardHomePage extends StatelessWidget {
+  const _StaffDashboardHomePage({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 4,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 16,
+              children: [
+                _buildActionItem(
+                    context, Icons.inventory_2_outlined, 'Manage\nProduct',
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ManageProductScreen()))),
+                _buildActionItem(
+                    context, Icons.campaign_outlined, 'Manage\nPromo',
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const AdminManagePromotionsScreen()))),
+                _buildActionItem(context, Icons.help_outline, 'Help',
+                    onTap: () => print("Help tapped")),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionItem(BuildContext context, IconData icon, String label,
+      {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 32, color: Colors.black87),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }
